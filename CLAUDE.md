@@ -218,3 +218,14 @@ HACKMTYVISTAFUTBOL/
 - Idioma del producto y comentarios de pitch: **español mexicano**.
 - Idioma del código y commits: inglés (estándar dev).
 - Mantén CLAUDE.md actualizado al cerrar cada milestone.
+
+### ⚠️ Regla cero: que NO se vea hecho con IA
+
+Esto se va a presentar en hackatón. Si los jueces o el equipo huelen "esto lo escribió un LLM", se pierde credibilidad.
+
+- **Diseño UI:** Nada de "card centrada en fondo negro" genérico de Tailwind. Layouts asimétricos, jerarquía tipográfica agresiva (contraste de pesos/tamaños), alineación a bordes, espacio negativo intencional. Tomar postura, no el default seguro.
+- **Commits:** Cortos, lowercase, casuales. Sin prefijos `feat:`/`chore:`/`fix:` salvo que ya se usen. Sin cuerpos con bullets largos. **Sin `Co-Authored-By: Claude` footer** — es el indicador #1. Ejemplo bueno: `add camera + permission flow`. Ejemplo malo: `feat: implement camera access via getUserMedia API with comprehensive error handling`.
+- **Comentarios en código:** Mínimos. No expliques lo que un nombre de variable ya dice. Cero banners de sección.
+- **READMEs:** Concisos. Cero tablas exhaustivas, cero secciones con emojis-header en proyectos chicos.
+
+Antes de escribir cualquier UI o commit, pregúntate: *"¿un dev cansado a las 2am escribiría esto, o huele a plantilla?"*
