@@ -7,21 +7,19 @@ export default {
   theme: {
     extend: {
       colors: {
-        paper: '#f3ede0',
-        ink: '#0a0a0a',
-        dust: '#8a7e6b',
         cancha: {
-          400: '#e8632b',
-          500: '#dd4f1a',
-          600: '#c2410c',
-          700: '#9a3412',
-        },
+          50: '#fff7ed',
+          100: '#ffedd5',
+          400: '#fb923c',
+          500: '#ff6b1a',
+          600: '#ea580c',
+          700: '#c2410c',
+          900: '#7c2d12',
+        }
       },
-      fontFamily: {
-        serif: ['"Instrument Serif"', 'Georgia', 'ui-serif', 'serif'],
-        sans: ['"Space Grotesk"', 'system-ui', '-apple-system', 'sans-serif'],
-        mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Consolas', 'monospace'],
-      },
+      animation: {
+        'pulse-fast': 'pulse 0.8s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+      }
     },
   },
   plugins: [],
