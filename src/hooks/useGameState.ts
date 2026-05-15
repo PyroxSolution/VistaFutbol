@@ -20,10 +20,13 @@ export function useGameState(input: UseGameStateInput): GameState {
   const stateRef = useRef(state)
   const enteredAtRef = useRef(performance.now())
   const lastBallSeenAtRef = useRef(0)
+  const lastGoalSeenAtRef = useRef(0)
 
   useEffect(() => {
     inputRef.current = input
-    if (input.ballPolar) lastBallSeenAtRef.current = performance.now()
+    const now = performance.now()
+    if (input.ballPolar) lastBallSeenAtRef.current = now
+    if (input.goalPolar) lastGoalSeenAtRef.current = now
   }, [input])
 
   useEffect(() => {
@@ -44,6 +47,7 @@ export function useGameState(input: UseGameStateInput): GameState {
         now: performance.now(),
         enteredAt: enteredAtRef.current,
         lastBallSeenAt: lastBallSeenAtRef.current,
+        lastGoalSeenAt: lastGoalSeenAtRef.current,
       })
       if (next !== s) setState(next)
     }, 80)

@@ -20,24 +20,27 @@ interface HsvRange {
   satMin: number
   valMin: number
   minPixels: number
+  minDensity: number
   className: string
 }
 
 const ORANGE: HsvRange = {
-  hueMin: 8,
-  hueMax: 35,
-  satMin: 0.5,
-  valMin: 0.4,
-  minPixels: 30,
+  hueMin: 10,
+  hueMax: 28,
+  satMin: 0.6,
+  valMin: 0.5,
+  minPixels: 120,
+  minDensity: 0.28,
   className: 'orange-ball',
 }
 
 const CYAN: HsvRange = {
-  hueMin: 165,
-  hueMax: 215,
-  satMin: 0.4,
-  valMin: 0.35,
-  minPixels: 50,
+  hueMin: 170,
+  hueMax: 200,
+  satMin: 0.55,
+  valMin: 0.45,
+  minPixels: 280,
+  minDensity: 0.32,
   className: 'cyan-goal',
 }
 
@@ -54,6 +57,8 @@ function detectColor(video: HTMLVideoElement, range: HsvRange): Detection | null
   let maxX = 0
   let maxY = 0
   let count = 0
+  let sumX = 0
+  let sumY = 0
 
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
@@ -79,6 +84,8 @@ function detectColor(video: HTMLVideoElement, range: HsvRange): Detection | null
       if (h < range.hueMin || h > range.hueMax) continue
 
       count++
+      sumX += x
+      sumY += y
       if (x < minX) minX = x
       if (x > maxX) maxX = x
       if (y < minY) minY = y
@@ -88,6 +95,27 @@ function detectColor(video: HTMLVideoElement, range: HsvRange): Detection | null
 
   if (count < range.minPixels) return null
 
+  const bw = maxX - minX
+  const bh = maxY - minY
+
+  if (bw < 10 || bh < 10) return null
+  if (bw > W * 0.75 || bh > H * 0.75) return null
+
+  const ar = bw / Math.max(1, bh)
+  if (ar < 0.45 || ar > 2.2) return null
+
+  const area = bw * bh
+  const density = count / Math.max(1, area)
+  if (density < range.minDensity) return null
+
+  const cx = sumX / count
+  const cy = sumY / count
+  const bboxCx = minX + bw / 2
+  const bboxCy = minY + bh / 2
+  const centroidOffset =
+    Math.sqrt((cx - bboxCx) ** 2 + (cy - bboxCy) ** 2) / Math.max(bw, bh)
+  if (centroidOffset > 0.25) return null
+
   const sx = video.videoWidth / W
   const sy = video.videoHeight / H
 
@@ -95,10 +123,10 @@ function detectColor(video: HTMLVideoElement, range: HsvRange): Detection | null
     bbox: {
       x: minX * sx,
       y: minY * sy,
-      width: (maxX - minX) * sx,
-      height: (maxY - minY) * sy,
+      width: bw * sx,
+      height: bh * sy,
     },
-    score: Math.min(1, count / 600),
+    score: Math.min(1, density * 1.5),
     class: range.className,
   }
 }

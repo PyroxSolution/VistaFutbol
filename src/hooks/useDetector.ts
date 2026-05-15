@@ -5,6 +5,9 @@ import type { Detection } from '../types'
 import { detectCyanGoal, detectOrangeBall } from '../lib/detector-hsv'
 
 const TICK_MS = 167
+const COCO_MIN_SCORE = 0.45
+const BALL_STABLE_FRAMES = 2
+const GOAL_STABLE_FRAMES = 3
 
 export interface UseDetectorResult {
   ball: Detection | null
@@ -29,6 +32,11 @@ export function useDetector(
   const modelRef = useRef<cocoSsd.ObjectDetection | null>(null)
   const missCountRef = useRef(0)
   const fallbackRef = useRef(false)
+
+  const ballStableRef = useRef(0)
+  const ballLastRef = useRef<Detection | null>(null)
+  const goalStableRef = useRef(0)
+  const goalLastRef = useRef<Detection | null>(null)
 
   useEffect(() => {
     if (!enabled) return
@@ -62,17 +70,17 @@ export function useDetector(
       const t0 = performance.now()
 
       const video = videoRef.current
-      let foundBall: Detection | null = null
-      let foundGoal: Detection | null = null
+      let rawBall: Detection | null = null
+      let rawGoal: Detection | null = null
 
       if (video && video.readyState >= 2) {
         const model = modelRef.current
         if (model) {
           try {
-            const preds = await model.detect(video, 5, 0.25)
+            const preds = await model.detect(video, 5, COCO_MIN_SCORE)
             const b = preds.find((p) => p.class === 'sports ball')
             if (b) {
-              foundBall = {
+              rawBall = {
                 bbox: { x: b.bbox[0], y: b.bbox[1], width: b.bbox[2], height: b.bbox[3] },
                 score: b.score,
                 class: b.class,
@@ -83,7 +91,7 @@ export function useDetector(
           }
         }
 
-        if (foundBall) {
+        if (rawBall) {
           missCountRef.current = 0
           if (fallbackRef.current) {
             fallbackRef.current = false
@@ -91,10 +99,10 @@ export function useDetector(
           }
         } else {
           missCountRef.current += 1
-          if (missCountRef.current >= 3) {
+          if (missCountRef.current >= 4) {
             const hsv = detectOrangeBall(video)
             if (hsv) {
-              foundBall = hsv
+              rawBall = hsv
               if (!fallbackRef.current) {
                 fallbackRef.current = true
                 setUsingFallback(true)
@@ -103,12 +111,33 @@ export function useDetector(
           }
         }
 
-        foundGoal = detectCyanGoal(video)
+        rawGoal = detectCyanGoal(video)
       }
 
+      if (rawBall) {
+        ballStableRef.current = Math.min(ballStableRef.current + 1, 100)
+        ballLastRef.current = rawBall
+      } else {
+        ballStableRef.current = 0
+        ballLastRef.current = null
+      }
+
+      if (rawGoal) {
+        goalStableRef.current = Math.min(goalStableRef.current + 1, 100)
+        goalLastRef.current = rawGoal
+      } else {
+        goalStableRef.current = 0
+        goalLastRef.current = null
+      }
+
+      const stableBall =
+        ballStableRef.current >= BALL_STABLE_FRAMES ? ballLastRef.current : null
+      const stableGoal =
+        goalStableRef.current >= GOAL_STABLE_FRAMES ? goalLastRef.current : null
+
       if (cancelled) return
-      setBall(foundBall)
-      setGoal(foundGoal)
+      setBall(stableBall)
+      setGoal(stableGoal)
       const now = performance.now()
       setFps(Math.round(1000 / (now - lastTick)))
       lastTick = now
