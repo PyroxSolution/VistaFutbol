@@ -1,10 +1,16 @@
 import { useState } from 'react'
 import { CameraView } from './components/CameraView'
+import { initAudio } from './lib/audio-engine'
 
 export default function App() {
   const [started, setStarted] = useState(false)
 
   if (started) return <CameraView onExit={() => setStarted(false)} />
+
+  const handleStart = () => {
+    void initAudio().catch(() => {})
+    setStarted(true)
+  }
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-black text-white">
@@ -34,7 +40,7 @@ export default function App() {
 
         <div className="mt-10 flex items-center gap-5">
           <button
-            onClick={() => setStarted(true)}
+            onClick={handleStart}
             aria-label="Empezar"
             className="group grid h-16 w-16 place-items-center rounded-full bg-cancha-500 transition-transform active:scale-90"
           >

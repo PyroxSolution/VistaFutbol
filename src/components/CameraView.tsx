@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useCamera } from '../hooks/useCamera'
 import { useDetector } from '../hooks/useDetector'
+import { useSpatialAudio } from '../hooks/useSpatialAudio'
 import { DetectionOverlay } from './DetectionOverlay'
 import { angleToClockHour, bboxToPolar } from '../lib/geometry'
 
@@ -11,6 +12,7 @@ interface Props {
 export function CameraView({ onExit }: Props) {
   const { videoRef, ready, error, start } = useCamera({ facingMode: 'environment' })
   const { detection, modelReady, modelError, fps, usingFallback } = useDetector(videoRef, ready)
+  const audio = useSpatialAudio()
 
   useEffect(() => {
     void start()
@@ -21,6 +23,14 @@ export function CameraView({ onExit }: Props) {
     detection && video && video.videoWidth
       ? bboxToPolar(detection.bbox, video.videoWidth, video.videoHeight)
       : null
+
+  useEffect(() => {
+    audio.setTarget(polar)
+  }, [polar?.angle, polar?.distance, audio])
+
+  useEffect(() => {
+    return () => audio.setTarget(null)
+  }, [audio])
 
   const statusText = error
     ? 'error'
@@ -61,6 +71,11 @@ export function CameraView({ onExit }: Props) {
           <Datum label="señal" value={detection ? `${Math.round(detection.score * 100)}%` : '—'} />
           <Datum label="distancia" value={polar ? `${polar.distance.toFixed(1)} m` : '—'} />
           <Datum label="dirección" value={polar ? `h${angleToClockHour(polar.angle)}` : '—'} />
+          <Datum
+            label="audio"
+            value={audio.ready ? (detection ? '3d activo' : '3d standby') : 'off'}
+            accent={audio.ready && !!detection}
+          />
           <Datum label="fps" value={fps ? String(fps) : '—'} />
         </div>
         <button
@@ -90,16 +105,16 @@ export function CameraView({ onExit }: Props) {
 
       <div className="absolute inset-x-5 bottom-8">
         <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.3em] text-white/40">
-          {detection ? 'siguiente · m4 audio espacial' : 'm2 · detección en vivo'}
+          {detection ? 'siguiente · m5 voz tts' : 'm4 · audio espacial 3d'}
         </p>
         <p className="text-base font-medium text-white/90">
           {!ready
             ? 'esperando cámara…'
             : !modelReady
-              ? 'cargando modelo de visión…'
+              ? 'cargando modelo…'
               : detection
-                ? 'balón en mira'
-                : 'apunta al balón'}
+                ? 'escucha el balón'
+                : 'apunta al balón · ponte los audífonos'}
         </p>
       </div>
     </div>
