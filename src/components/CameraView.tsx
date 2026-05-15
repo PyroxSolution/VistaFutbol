@@ -2,8 +2,11 @@ import { useEffect } from 'react'
 import { useCamera } from '../hooks/useCamera'
 import { useDetector } from '../hooks/useDetector'
 import { useSpatialAudio } from '../hooks/useSpatialAudio'
+import { useGameState } from '../hooks/useGameState'
 import { DetectionOverlay } from './DetectionOverlay'
+import { GoalCelebration } from './GoalCelebration'
 import { angleToClockHour, bboxToPolar } from '../lib/geometry'
+import { isBallPhase, isGoalPhase, stateLabel } from '../state/gameMachine'
 
 interface Props {
   onExit: () => void
@@ -11,7 +14,7 @@ interface Props {
 
 export function CameraView({ onExit }: Props) {
   const { videoRef, ready, error, start } = useCamera({ facingMode: 'environment' })
-  const { detection, modelReady, modelError, fps, usingFallback } = useDetector(videoRef, ready)
+  const { ball, goal, modelReady, modelError, fps, usingFallback } = useDetector(videoRef, ready)
   const audio = useSpatialAudio()
 
   useEffect(() => {
@@ -19,30 +22,37 @@ export function CameraView({ onExit }: Props) {
   }, [start])
 
   const video = videoRef.current
-  const polar =
-    detection && video && video.videoWidth
-      ? bboxToPolar(detection.bbox, video.videoWidth, video.videoHeight)
+  const ballPolar =
+    ball && video && video.videoWidth
+      ? bboxToPolar(ball.bbox, video.videoWidth, video.videoHeight)
+      : null
+  const goalPolar =
+    goal && video && video.videoWidth
+      ? bboxToPolar(goal.bbox, video.videoWidth, video.videoHeight)
       : null
 
+  const gameState = useGameState({
+    cameraReady: ready,
+    modelReady,
+    ballPolar,
+    goalPolar,
+  })
+
+  const ballPhase = isBallPhase(gameState)
+  const goalPhase = isGoalPhase(gameState)
+  const activePolar = ballPhase ? ballPolar : goalPhase ? goalPolar : null
+  const activeDetection = ballPhase ? ball : goalPhase ? goal : null
+
   useEffect(() => {
-    audio.setTarget(polar)
-  }, [polar?.angle, polar?.distance, audio])
+    audio.setTarget(activePolar)
+  }, [activePolar?.angle, activePolar?.distance, audio])
 
   useEffect(() => {
     return () => audio.setTarget(null)
   }, [audio])
 
-  const statusText = error
-    ? 'error'
-    : !ready
-      ? 'cámara…'
-      : !modelReady
-        ? 'cargando ia…'
-        : detection
-          ? usingFallback
-            ? 'detectado · color'
-            : 'detectado'
-          : 'buscando'
+  const objective = ballPhase ? 'balón' : goalPhase ? 'portería' : '—'
+  const isKickReady = gameState === 'ball:kick-ready'
 
   return (
     <div className="fixed inset-0 bg-black overflow-hidden">
@@ -54,11 +64,17 @@ export function CameraView({ onExit }: Props) {
         autoPlay
       />
 
-      {ready && <DetectionOverlay detection={detection} videoRef={videoRef} />}
+      {ready && <DetectionOverlay ball={ball} goal={goal} videoRef={videoRef} />}
 
-      {ready && <div className="absolute inset-x-0 top-0 h-[2px] bg-cancha-500" />}
+      {ready && (
+        <div
+          className={`absolute inset-x-0 top-0 h-[2px] bg-cancha-500 ${isKickReady ? 'animate-pulse-fast' : ''}`}
+        />
+      )}
 
-      <div className="absolute inset-x-12 top-28 bottom-36 pointer-events-none">
+      <div
+        className={`absolute inset-x-12 top-28 bottom-44 pointer-events-none transition-opacity ${isKickReady ? 'opacity-100' : 'opacity-80'}`}
+      >
         <Bracket pos="tl" />
         <Bracket pos="tr" />
         <Bracket pos="bl" />
@@ -67,14 +83,27 @@ export function CameraView({ onExit }: Props) {
 
       <div className="absolute inset-x-0 top-0 flex items-start justify-between px-5 pt-5">
         <div className="space-y-2.5">
-          <Datum label="estado" value={statusText} accent={!!detection} />
-          <Datum label="señal" value={detection ? `${Math.round(detection.score * 100)}%` : '—'} />
-          <Datum label="distancia" value={polar ? `${polar.distance.toFixed(1)} m` : '—'} />
-          <Datum label="dirección" value={polar ? `h${angleToClockHour(polar.angle)}` : '—'} />
+          <Datum label="objetivo" value={objective} accent={ballPhase || goalPhase} />
+          <Datum
+            label="señal"
+            value={activeDetection ? `${Math.round(activeDetection.score * 100)}%` : '—'}
+          />
+          <Datum
+            label="distancia"
+            value={activePolar ? `${activePolar.distance.toFixed(1)} m` : '—'}
+          />
+          <Datum
+            label="dirección"
+            value={activePolar ? `h${angleToClockHour(activePolar.angle)}` : '—'}
+          />
           <Datum
             label="audio"
-            value={audio.ready ? (detection ? '3d activo' : '3d standby') : 'off'}
-            accent={audio.ready && !!detection}
+            value={audio.ready ? (activePolar ? '3d activo' : '3d standby') : 'off'}
+            accent={audio.ready && !!activePolar}
+          />
+          <Datum
+            label="modo"
+            value={usingFallback ? 'color' : modelReady ? 'ia' : 'cargando'}
           />
           <Datum label="fps" value={fps ? String(fps) : '—'} />
         </div>
@@ -87,7 +116,7 @@ export function CameraView({ onExit }: Props) {
       </div>
 
       {(error || modelError) && (
-        <div className="absolute inset-x-5 bottom-32 rounded-lg border border-red-800/60 bg-red-950/95 p-5 backdrop-blur">
+        <div className="absolute inset-x-5 bottom-40 rounded-lg border border-red-800/60 bg-red-950/95 p-5 backdrop-blur">
           <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.3em] text-red-400">
             {error ? 'permiso requerido' : 'modelo no cargó'}
           </p>
@@ -105,18 +134,16 @@ export function CameraView({ onExit }: Props) {
 
       <div className="absolute inset-x-5 bottom-8">
         <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.3em] text-white/40">
-          {detection ? 'siguiente · m5 voz tts' : 'm4 · audio espacial 3d'}
+          fase · {gameState}
         </p>
-        <p className="text-base font-medium text-white/90">
-          {!ready
-            ? 'esperando cámara…'
-            : !modelReady
-              ? 'cargando modelo…'
-              : detection
-                ? 'escucha el balón'
-                : 'apunta al balón · ponte los audífonos'}
+        <p
+          className={`text-xl font-bold leading-tight ${isKickReady ? 'text-cancha-500' : 'text-white'}`}
+        >
+          {stateLabel(gameState)}
         </p>
       </div>
+
+      {gameState === 'goal:reached' && <GoalCelebration />}
     </div>
   )
 }

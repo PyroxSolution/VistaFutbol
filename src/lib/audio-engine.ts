@@ -134,6 +134,14 @@ export function playGoal(): void {
   })
 }
 
+export function duckMaster(targetGain: number, duration = 0.05): void {
+  if (!masterGain || !ctx) return
+  const now = ctx.currentTime
+  masterGain.gain.cancelScheduledValues(now)
+  masterGain.gain.setValueAtTime(masterGain.gain.value, now)
+  masterGain.gain.linearRampToValueAtTime(targetGain, now + duration)
+}
+
 export function playKick(): void {
   if (!ctx) return
   const out = masterGain ?? ctx.destination

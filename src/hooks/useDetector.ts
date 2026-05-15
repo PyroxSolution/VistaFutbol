@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import * as cocoSsd from '@tensorflow-models/coco-ssd'
 import * as tf from '@tensorflow/tfjs'
 import type { Detection } from '../types'
-import { detectOrangeBall } from '../lib/detector-hsv'
+import { detectCyanGoal, detectOrangeBall } from '../lib/detector-hsv'
 
 const TICK_MS = 167
 
 export interface UseDetectorResult {
-  detection: Detection | null
+  ball: Detection | null
+  goal: Detection | null
   modelReady: boolean
   modelError: string | null
   fps: number
@@ -18,7 +19,8 @@ export function useDetector(
   videoRef: React.RefObject<HTMLVideoElement>,
   enabled: boolean
 ): UseDetectorResult {
-  const [detection, setDetection] = useState<Detection | null>(null)
+  const [ball, setBall] = useState<Detection | null>(null)
+  const [goal, setGoal] = useState<Detection | null>(null)
   const [modelReady, setModelReady] = useState(false)
   const [modelError, setModelError] = useState<string | null>(null)
   const [fps, setFps] = useState(0)
@@ -60,24 +62,20 @@ export function useDetector(
       const t0 = performance.now()
 
       const video = videoRef.current
-      let found: Detection | null = null
+      let foundBall: Detection | null = null
+      let foundGoal: Detection | null = null
 
       if (video && video.readyState >= 2) {
         const model = modelRef.current
         if (model) {
           try {
             const preds = await model.detect(video, 5, 0.25)
-            const ball = preds.find((p) => p.class === 'sports ball')
-            if (ball) {
-              found = {
-                bbox: {
-                  x: ball.bbox[0],
-                  y: ball.bbox[1],
-                  width: ball.bbox[2],
-                  height: ball.bbox[3],
-                },
-                score: ball.score,
-                class: ball.class,
+            const b = preds.find((p) => p.class === 'sports ball')
+            if (b) {
+              foundBall = {
+                bbox: { x: b.bbox[0], y: b.bbox[1], width: b.bbox[2], height: b.bbox[3] },
+                score: b.score,
+                class: b.class,
               }
             }
           } catch {
@@ -85,7 +83,7 @@ export function useDetector(
           }
         }
 
-        if (found) {
+        if (foundBall) {
           missCountRef.current = 0
           if (fallbackRef.current) {
             fallbackRef.current = false
@@ -96,7 +94,7 @@ export function useDetector(
           if (missCountRef.current >= 3) {
             const hsv = detectOrangeBall(video)
             if (hsv) {
-              found = hsv
+              foundBall = hsv
               if (!fallbackRef.current) {
                 fallbackRef.current = true
                 setUsingFallback(true)
@@ -104,10 +102,13 @@ export function useDetector(
             }
           }
         }
+
+        foundGoal = detectCyanGoal(video)
       }
 
       if (cancelled) return
-      setDetection(found)
+      setBall(foundBall)
+      setGoal(foundGoal)
       const now = performance.now()
       setFps(Math.round(1000 / (now - lastTick)))
       lastTick = now
@@ -124,5 +125,5 @@ export function useDetector(
     }
   }, [enabled, videoRef])
 
-  return { detection, modelReady, modelError, fps, usingFallback }
+  return { ball, goal, modelReady, modelError, fps, usingFallback }
 }

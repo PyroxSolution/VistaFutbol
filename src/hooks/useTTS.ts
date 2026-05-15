@@ -1,12 +1,15 @@
+import { cancelSpeech, isTTSSupported, speak } from '../lib/tts-engine'
+
 export interface UseTTSResult {
-  speak: (text: string, priority?: 'low' | 'high') => void
-  ready: boolean
+  speak: (text: string, priority?: 'high' | 'low') => void
+  cancel: () => void
+  supported: boolean
 }
 
 export function useTTS(): UseTTSResult {
-  // TODO M5: usar SpeechSynthesis con voz es-MX, cola con prioridades
   return {
-    speak: () => {},
-    ready: false,
+    speak,
+    cancel: cancelSpeech,
+    supported: isTTSSupported(),
   }
 }
