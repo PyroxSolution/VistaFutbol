@@ -229,3 +229,27 @@ Esto se va a presentar en hackatón. Si los jueces o el equipo huelen "esto lo e
 - **READMEs:** Concisos. Cero tablas exhaustivas, cero secciones con emojis-header en proyectos chicos.
 
 Antes de escribir cualquier UI o commit, pregúntate: *"¿un dev cansado a las 2am escribiría esto, o huele a plantilla?"*
+
+### 🎨 Sistema de diseño (decidido — no cambiar sin discutir)
+
+**Dirección:** editorial × audio-sinestésico. Como una revista que también es una app de audio.
+
+- **Paleta:**
+  - `paper` `#f3ede0` (fondo home — crema, sensación impresa, anti-default-dark-mode)
+  - `ink` `#0a0a0a` (texto + fondo del modo cámara)
+  - `cancha-500` `#dd4f1a` (naranja quemado, no neón — único acento)
+  - `dust` `#8a7e6b` (gris cálido para secundarios)
+- **Tipografía:**
+  - `font-serif`: **Instrument Serif** (regular + italic) — para wordmark, quotes, momentos editoriales. SIEMPRE italic en el wordmark.
+  - `font-sans`: **Space Grotesk** (400/500/700) — body, UI general.
+  - `font-mono`: system mono (SF Mono / Consolas) — labels técnicos, números, IDs, "edition" tags.
+- **Texturas:** grano sutil (`/grain.svg`) sobre fondo paper con `mix-blend-multiply` y opacity 8% — sensación de papel impreso.
+- **Identidad visual:**
+  - Brand mark: círculo outline negro + dot naranja off-center (ojo / pupila descentrada / cancha + balón).
+  - Modo cámara: arcos de **sonar** pulsando desde el centro (no viewfinder con brackets — el sonar transmite "está escuchando").
+  - Labels técnicos siempre `font-mono text-[10px] uppercase tracking-[0.25em+]`.
+  - CTA principal: línea horizontal con flecha (`────  ↗`), no botón circular.
+
+**Refs mentales:** Instrument Serif italic + Space Grotesk = lenguaje editorial moderno (think *The Whitepaper*, *Wisecrack*, *MSCHF*). Combinado con sonar pulsante para hablar del producto audio-first.
+
+**Lo que NO hacemos:** gradientes glassmórficos, glow effects neón, rounded-2xl en todo, blur-xl backgrounds, generic dark mode default, emojis decorativos en UI, font-system para títulos. Si lo verías en un template gratis de Vercel, no lo usamos.
