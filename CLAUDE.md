@@ -130,21 +130,26 @@ HACKMTYVISTAFUTBOL/
 
 ## 📅 Milestones
 
-| # | Milestone | Tiempo | Owner sugerido | Status |
-|---|---|---|---|---|
-| M0 | Setup repo + Vite + Vercel + dev server | 30 min | Todos | 🔄 EN PROGRESO |
-| M1 | Cámara funcionando en celular real (HTTPS) | 45 min | C | Pendiente |
-| M2 | TF.js detecta `sports ball` en vivo | 2 h | A | Pendiente |
-| M3 | bbox → coordenadas polares (θ, r) | 30 min | A | Pendiente |
-| M4 | Audio espacial 3D con PannerNode | 1.5 h | B | Pendiente |
-| M5 | TTS español funcional | 45 min | B | Pendiente |
-| M6 | Detección de portería con ArUco | 1 h | A | Pendiente |
-| M7 | Máquina de estados (gameplay loop) | 1.5 h | C | Pendiente |
-| M8 | Háptica + sonidos celebración | 45 min | B | Pendiente |
-| M9 | UI mínima + landing + QR | 1 h | C | Pendiente |
-| M10 | Ensayar demo + video respaldo | 1 h | Todos | Pendiente |
+| # | Milestone | Status |
+|---|---|---|
+| M0 | Setup repo + Vite + Vercel + dev server | ✅ |
+| M1 | Cámara funcionando en celular real (HTTPS) | ✅ |
+| M2 | TF.js detecta `sports ball` + HSV fallback | ✅ |
+| M3 | bbox → coordenadas polares (θ, r) | ✅ |
+| M4 | Audio espacial 3D con PannerNode HRTF | ✅ |
+| M5 | TTS español con cola y ducking | ✅ |
+| M6 | Detección de portería (HSV cyan, ArUco descartado) | ✅ |
+| M7 | Máquina de estados (8 estados, FSM pura) | ✅ |
+| M8 | Háptica (`navigator.vibrate`) + SFX (kick + goal fanfare) | ✅ |
+| M9 | UI: state badge, goal celebration overlay, dual bbox | ✅ |
+| M10 | README final con guía de demo | ✅ |
 
-**MVP mínimo demoable:** M0 + M1 + M2 + M3 + M4 + M5 (~6h).
+**Decisión M6:** Se descartó ArUco (js-aruco2) por simplicidad. La portería se detecta con un papel/cartón cyan/turquesa (hue 165-215°). Misma pipeline HSV que el balón, sin nuevas dependencias.
+
+**Pendiente futuro (no MVP):**
+- Modo entrenador WebRTC
+- ArUco para portería robusta en luz variable
+- Calibración de FOV/altura del celular por usuario
 
 ---
 
