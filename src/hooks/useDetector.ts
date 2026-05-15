@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import * as cocoSsd from '@tensorflow-models/coco-ssd'
 import * as tf from '@tensorflow/tfjs'
 import type { Detection } from '../types'
-import { detectCyanGoal, detectOrangeBall } from '../lib/detector-hsv'
+import { detectAnyBall, detectCyanGoal } from '../lib/detector-hsv'
 
 const TICK_MS = 167
-const COCO_MIN_SCORE = 0.45
+const COCO_MIN_SCORE = 0.4
 const BALL_STABLE_FRAMES = 2
 const GOAL_STABLE_FRAMES = 3
 
@@ -100,7 +100,7 @@ export function useDetector(
         } else {
           missCountRef.current += 1
           if (missCountRef.current >= 4) {
-            const hsv = detectOrangeBall(video)
+            const hsv = detectAnyBall(video)
             if (hsv) {
               rawBall = hsv
               if (!fallbackRef.current) {
