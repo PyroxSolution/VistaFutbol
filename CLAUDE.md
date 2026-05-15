@@ -209,8 +209,9 @@ HACKMTYVISTAFUTBOL/
 
 ## 🔗 Enlaces importantes
 
-- Repo GitHub: _(pendiente — se crea en M0)_
-- Deploy Vercel: _(pendiente — link después de M0)_
+- Repo GitHub: https://github.com/PyroxSolution/VistaFutbol
+- Deploy Vercel: https://vistafutbol.vercel.app (auto-deploy en push a main)
+- Vercel project: pyroxsoftwares-6052s-projects/vistafutbol
 - Devpost / submission: _(pendiente)_
 
 ---

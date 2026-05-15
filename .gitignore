@@ -42,3 +42,5 @@ dev-dist/
 
 # TypeScript
 *.tsbuildinfo
+
+.vercel

@@ -2,6 +2,8 @@
 
 PWA que convierte el celular en los ojos de una persona ciega para que pueda jugar fútbol real. No simulación, no videojuego — el jugador camina, patea y mete gol en el mundo físico.
 
+**Live:** https://vistafutbol.vercel.app
+
 Hackatón de Innovación Inclusiva — Tec de Monterrey · 16 de mayo 2026.
 
 ## Cómo funciona
