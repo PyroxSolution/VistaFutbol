@@ -85,46 +85,41 @@ Modo Entrenador (bonus, solo si M1-M10 ya están listos)
 
 ---
 
-## 📁 Estructura de carpetas (objetivo)
+## 📁 Estructura real (la que existe hoy)
 
 ```
 HACKMTYVISTAFUTBOL/
-├── CLAUDE.md                    # este archivo
-├── README.md                    # pitch + cómo correr
-├── public/
-│   ├── aruco-marker.pdf
-│   ├── icons/
-│   └── sounds/
-│       ├── goal-celebration.mp3
-│       ├── kick.mp3
-│       └── proximity-beep.mp3
+├── CLAUDE.md
+├── README.md
+├── public/icons/ + favicon.svg
 ├── src/
-│   ├── main.tsx
-│   ├── App.tsx
+│   ├── main.tsx · App.tsx · types.ts
 │   ├── components/
-│   │   ├── CameraView.tsx
-│   │   ├── GameHUD.tsx
-│   │   └── CalibrationScreen.tsx
+│   │   ├── CameraView.tsx         integra cámara + detector + audio + FSM + HUD
+│   │   ├── DetectionOverlay.tsx   canvas con bboxes (ball naranja, goal cyan)
+│   │   └── GoalCelebration.tsx    overlay "GOL" pop-in
 │   ├── hooks/
-│   │   ├── useCamera.ts
-│   │   ├── useDetector.ts
-│   │   ├── useArUco.ts
-│   │   ├── useSpatialAudio.ts
-│   │   ├── useTTS.ts
-│   │   ├── useGameState.ts
+│   │   ├── useCamera.ts           getUserMedia con resolución elegible
+│   │   ├── useDetector.ts         fusión COCO + HSV, tracking, EMA smoothing
+│   │   ├── useSpatialAudio.ts     wrapper del engine HRTF
+│   │   ├── useTTS.ts              wrapper (no se usa directamente, expone API)
+│   │   ├── useGameState.ts        FSM hook con histéresis + narración
 │   │   └── usePlatformCapabilities.ts
 │   ├── lib/
-│   │   ├── geometry.ts          # bbox → polar
-│   │   ├── detector-tfjs.ts
-│   │   ├── detector-hsv.ts
-│   │   └── narration.ts
-│   ├── state/
-│   │   └── gameMachine.ts
-│   └── types.ts
-├── vite.config.ts               # PWA plugin + HTTPS
-├── tailwind.config.js
+│   │   ├── geometry.ts            bbox→polar, directionLabel
+│   │   ├── detector-hsv.ts        HSV 240×180, BFS componentes conexas, scoring circular
+│   │   ├── audio-engine.ts        PannerNode HRTF, blip, kick SFX, goal fanfare
+│   │   ├── tts-engine.ts          SpeechSynthesis con prime + watchdog + blip mute
+│   │   ├── haptics.ts             navigator.vibrate
+│   │   └── narration.ts           frases reusables (poco usado actualmente)
+│   └── state/
+│       └── gameMachine.ts         FSM pura, 8 estados, hysteresis frames
+├── vite.config.ts                 PWA + basic-ssl + workbox 50MB cache
+├── tailwind.config.js             color cancha-500, animaciones fade-up / pop-in
 └── package.json
 ```
+
+Lo que el plan inicial mencionaba y NO existe: `useArUco`, `GameHUD`, `CalibrationScreen`, `detector-tfjs.ts` (la detección TF.js vive directo en `useDetector.ts`).
 
 ---
 
@@ -143,26 +138,88 @@ HACKMTYVISTAFUTBOL/
 | M8 | Háptica (`navigator.vibrate`) + SFX (kick + goal fanfare) | ✅ |
 | M9 | UI: state badge, goal celebration overlay, dual bbox | ✅ |
 | M10 | README final con guía de demo | ✅ |
+| M11 | Hardening detector: BFS componentes conexas + circularidad + texture variance | ✅ |
+| M12 | Fix TTS iOS Safari: prime + watchdog + mute blip durante voz | ✅ |
+| M13 | FSM con histéresis (closeFrames, dwell, grace) — elimina falsos kicked | ✅ |
+| M14 | Narración con direction labels (izq/frente/der) en lugar de hora reloj | ✅ |
+| M15 | Selector de calidad de cámara (rendimiento/balance/calidad) | ✅ |
+| M16 | Botón reset + subtítulos del jurado en HUD | ✅ |
 
-**Decisión M6:** Se descartó ArUco (js-aruco2) por simplicidad. La portería se detecta con un papel/cartón cyan/turquesa (hue 165-215°). Misma pipeline HSV que el balón, sin nuevas dependencias.
+**Decisión M6:** Se descartó ArUco (js-aruco2) por simplicidad. La portería se detecta con un papel/cartón cyan/turquesa (hue 160-210°). Misma pipeline HSV que el balón, sin nuevas dependencias.
 
-**Pendiente futuro (no MVP):**
+**Pendiente / no atacado para MVP:**
 - Modo entrenador WebRTC
-- ArUco para portería robusta en luz variable
-- Calibración de FOV/altura del celular por usuario
+- ArUco para portería en luz variable
+- Calibración FOV por usuario (hoy fijo en 65°)
+- Acelerómetro para detectar patada real (hoy usa heurística de "balón desapareció")
+
+---
+
+## 🔬 Estado actual del pipeline (resumen técnico para retomar)
+
+### Detector ([useDetector.ts](src/hooks/useDetector.ts) + [detector-hsv.ts](src/lib/detector-hsv.ts))
+
+- **COCO-SSD** corre con base `mobilenet_v2` (no la lite — más accuracy, ~13MB).
+- **Solo acepta clase `sports ball`**. Las clases extra (`frisbee`, `apple`, `orange`, `donut`) se quitaron porque generaban falsos positivos sobre plantas y muebles.
+- **Threshold COCO**: `COCO_MIN_SCORE = 0.32`. Si score ∈ [0.32, 0.55] requiere overlap (IoU ≥ 0.18) con un blob HSV en el mismo lugar. Si score ≥ 0.55, COCO solo basta.
+- **HSV** trabaja sobre downsample 240×180 con dos máscaras separadas:
+  - `COLORFUL` (saturación ≥ 0.35, valor ≥ 0.3) — captura parches rojo/azul del balón Voit.
+  - `BRIGHT` (saturación ≤ 0.3, valor ≥ 0.7) — fallback estricto para balones blancos.
+  - Cada máscara: dilatación 1 píxel → **BFS de componentes conexas** → scoring por **circularidad** `count/(π/4·bw·bh)` ≥ 0.55, **aspect ratio** 0.62–1.62, **centroide** dentro del 18% del centro del bbox.
+  - **Texture variance check**: rechaza blobs con luminance variance < 120 (paredes lisas).
+- Cuando COCO y HSV coinciden (IoU ≥ 0.18) los bboxes se **fusionan** (65% COCO + 35% HSV).
+- **Tracking con hold + EMA**: si un tick falla detectar, mantiene el último bbox (suavizado α=0.5) por 320 ms antes de soltar el track. Decay del score con la edad.
+- Cámara configurable (854×480 / 1280×720 / 1920×1080) desde el splash.
+
+### Geometría ([geometry.ts](src/lib/geometry.ts))
+
+- `FOV_HORIZONTAL_DEG = 65` (asunción genérica, no calibrado por dispositivo).
+- Distancia: `(0.22 m × focal_px) / min(bbox.width, bbox.height)`. Usa el lado **menor** para evitar inflación por sombras.
+- `directionLabel(angle)`: devuelve "al frente" / "media izquierda" / "a la izquierda" / "media derecha" / "a la derecha" según el ángulo en grados.
+
+### FSM ([gameMachine.ts](src/state/gameMachine.ts))
+
+8 estados puros con histéresis basada en contadores de frames consecutivos (no en single-frame triggers):
+
+- `ball:search → ball:approach`: requiere **3 frames** con ballPolar visible.
+- `ball:approach → ball:kick-ready`: requiere **5 frames** consecutivos con distance < 0.5 m **y** dwell de 900 ms en approach.
+- `ball:kick-ready → ball:kicked`: requiere **mínimo 1400 ms** en kick-ready **más** distancia > 1.8 m o ball perdido por > 2200 ms.
+- `goal:approach → goal:reached`: requiere **4 frames** consecutivos con distance < 0.7 m.
+
+Esto elimina los falsos "patea ahora" y los falsos "buen tiro" que aparecían con bbox inestables.
+
+### TTS ([tts-engine.ts](src/lib/tts-engine.ts))
+
+- `primeTTS()` se llama en el click "Empezar" — desbloquea SpeechSynthesis en iOS Safari con un utterance volumen 0.01.
+- Durante TTS se llama `setBlipsMuted(true)` y `duckMaster(0.05)` — el blip se silencia totalmente para que la voz se oiga.
+- **Watchdog**: si una frase debería haber terminado y `onend` no disparó (bug conocido de iOS), forzamos reset.
+- Voz preferida: `es-MX` → `es-US` → `es-419` → `es-ES` → cualquier `es-*`.
+- Rate 1.0, pitch 1.0, volume 1.0.
+
+### Audio espacial ([audio-engine.ts](src/lib/audio-engine.ts))
+
+- `AudioContext` + `PannerNode` HRTF + `GainNode` master.
+- Loop de blips: intervalo 100 ms (cerca) → 800 ms (lejos), frecuencia 880 Hz → 330 Hz por distancia.
+- Sin audífonos sigue funcionando (sale por altavoz / bluetooth) pero el efecto 3D se pierde — solo el volumen y la frecuencia comunican distancia.
+
+### Sonidos de juego
+
+Sintetizados con osciladores Web Audio, no archivos:
+- **Kick**: square 120 Hz → 40 Hz, envelope 0.22 s.
+- **Goal**: arpegio C-E-G-C ascendente, triangle wave, ~0.5 s.
 
 ---
 
 ## 🎒 Checklist físico para el sábado
 
-- [ ] ⚽ Balón naranja brillante mate (NO reflectante)
+- [ ] ⚽ Balón (Voit MS-5 blanco/rojo/azul confirmado funciona; cualquier balón con color saturado en parches sirve)
 - [ ] 📱 Porta-celular deportivo (arnés de pecho)
-- [ ] 🔺 2 conos pequeños O caja con ArUco impreso
-- [ ] 🎧 Audífonos **cableados** (NO Bluetooth)
-- [ ] 📄 Marcador ArUco impreso en hoja blanca
+- [ ] 📄 **Papel/fomi/cartulina cyan-turquesa** para portería (hue 160-210°, mínimo carta tamaño)
+- [ ] 🎧 Audífonos **cableados** (sin ellos se pierde efecto 3D pero la voz funciona)
 - [ ] 🧣 Antifaz/vendas para vendar al juez
 - [ ] 🔌 Cargador + powerbank
 - [ ] 💡 Lámpara LED (opcional, por si la sala está oscura)
+- [ ] 📹 Video respaldo de 60s (NO grabado aún — pendiente)
 
 ---
 
@@ -180,11 +237,16 @@ HACKMTYVISTAFUTBOL/
 
 | Riesgo | Mitigación |
 |---|---|
-| TF.js no detecta balón en cancha | Fallback HSV automático (color naranja siempre detectable) |
-| Wifi del hackatón muere | PWA con todo cached, modelo descargado al cargar, funciona offline |
-| Audio espacial no se percibe | Audífonos propios cableados, no Bluetooth |
-| Demo no funciona en vivo | Video de 60s pre-grabado como respaldo |
-| Falta tiempo | MVP mínimo de M0-M5 ya es demoable y ganador |
+| TF.js no detecta balón en cancha | Fusión con HSV (BFS + circularidad + texture variance). HSV agarra balones con parches saturados |
+| Cancha tiene fondo blanco/gris similar al balón | Texture variance check rechaza áreas planas (varianza < 120). El COLORFUL mask agarra parches saturados aún sin BRIGHT |
+| Luz cambia durante el demo (sombras del jurado, etc.) | Dos máscaras HSV separadas (COLORFUL + BRIGHT). Tracking con hold de 320ms suaviza pérdidas momentáneas |
+| FSM se atasca o llega a un estado falso en vivo | Botón **reset** visible en HUD vuelve a `idle` → `ball:search` con voz nueva |
+| TTS no se oye en iOS / bluetooth | Prime desde el gesto del usuario + mute total del blip durante voz + watchdog si `onend` no dispara |
+| Wifi del hackatón muere | PWA cached (workbox 50MB). Modelo `mobilenet_v2` se descarga al cargar y queda en cache. Funciona offline tras primer load |
+| Audio espacial no se percibe sin audífonos | La voz, el volumen y la frecuencia del blip siguen comunicando distancia. El splash advierte que "audífonos cableados > bluetooth > altavoz" |
+| Demo no funciona en vivo | Video de 60s pre-grabado como respaldo (pendiente grabar) |
+| FOV del celular distinto a 65° | Distancia estimada estará off-by-factor. Calibrar con cinta métrica a 1m, ajustar `FOV_HORIZONTAL_DEG` si dice ±20% |
+| Falta tiempo | MVP funcional al cierre del 2026-05-15. M11–M16 (hardening) ya completos |
 
 ---
 
@@ -204,6 +266,12 @@ HACKMTYVISTAFUTBOL/
 - **2026-05-14:** Equipo de 3. Target Android primario, iPhone backup.
 - **2026-05-14:** Nombre oficial: **VistaFútbol**.
 - **2026-05-14:** Repo se crea desde cero con `gh` CLI (cuenta `PyroxSolution`).
+- **2026-05-15:** Detector reescrito tras pruebas con Voit MS-5 blanco/rojo/azul en luz mediocre. HSV ahora hace BFS de componentes conexas + circularidad + texture variance. COCO subido a `mobilenet_v2` completo (no lite). Solo acepta `sports ball`; las clases extras daban falsos positivos sobre plantas.
+- **2026-05-15:** FSM rota → reescrita con **histéresis**. El bug era distancia mal estimada (bbox inflado por sombras) que disparaba kick-ready falso → kicked automático. Fix: `min(width, height)` en distancia + contadores de frames consecutivos + dwell mínimo de 1.4 s en kick-ready + grace de 2.2 s.
+- **2026-05-15:** TTS no se oía en iOS Safari mientras el blip sonaba. Fix: `primeTTS()` desde el gesto del usuario + `setBlipsMuted(true)` durante TTS (silencio total, no solo ducking) + watchdog para `onend` que no dispara.
+- **2026-05-15:** Narración cambiada de "hora 12" (estilo reloj) a "izquierda / al frente / derecha" — más natural y comprensible para un usuario ciego.
+- **2026-05-15:** Selector de calidad de cámara (854/720p/1080p) en el splash, persistido en `localStorage`. Auto-sugiere 1080p para iPhone 14+.
+- **2026-05-15:** Botón reset accesible en HUD para escape de estados atascados en el demo. Subtítulos grandes con la última frase TTS para que el jurado vidente pueda leer lo que oye el ciego.
 
 ---
 
