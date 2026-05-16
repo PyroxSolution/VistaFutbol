@@ -13,7 +13,7 @@ const GOAL_HOLD_MS = 700
 const SMOOTH_ALPHA = 0.5
 const AR_MIN = 0.6
 const AR_MAX = 1.7
-const MIN_SIDE_PX = 18
+const MIN_SIDE_PX = 10
 
 export interface UseDetectorResult {
   ball: Detection | null

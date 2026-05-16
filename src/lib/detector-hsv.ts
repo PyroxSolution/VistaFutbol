@@ -218,7 +218,7 @@ function scoreBallBlob(blob: Blob, minCircularity: number, arRange: [number, num
   const bw = blob.maxX - blob.minX + 1
   const bh = blob.maxY - blob.minY + 1
 
-  if (bw < 12 || bh < 12) return null
+  if (bw < 7 || bh < 7) return null
   if (bw > W * 0.7 || bh > H * 0.7) return null
 
   const ar = bw / bh
@@ -305,17 +305,17 @@ export function detectAnyBall(video: HTMLVideoElement): Detection | null {
   orMasks(colorfulDilated, brightDilated, fusedMask)
   dilate8(fusedMask, fusedDilated)
 
-  const fusedBest = pickBest(data, fusedDilated, 160, 0.6, [0.62, 1.62], 180)
-  if (fusedBest && fusedBest.score >= 0.66) {
+  const fusedBest = pickBest(data, fusedDilated, 80, 0.55, [0.6, 1.65], 140)
+  if (fusedBest && fusedBest.score >= 0.62) {
     return blobToDetection(fusedBest, 'hsv-fused', video)
   }
 
-  const colorBest = pickBest(data, colorfulDilated, 90, 0.55, [0.6, 1.65], 120)
+  const colorBest = pickBest(data, colorfulDilated, 45, 0.5, [0.58, 1.7], 90)
   if (colorBest) return blobToDetection(colorBest, 'hsv-color', video)
 
   if (fusedBest) return blobToDetection(fusedBest, 'hsv-fused', video)
 
-  const brightBest = pickBest(data, brightDilated, 220, 0.7, [0.62, 1.62], 180)
+  const brightBest = pickBest(data, brightDilated, 120, 0.65, [0.6, 1.65], 150)
   return brightBest ? blobToDetection(brightBest, 'hsv-bright', video) : null
 }
 
@@ -326,7 +326,7 @@ export function detectCyanGoal(video: HTMLVideoElement): Detection | null {
 
   buildMask(data, CYAN, cyanMask)
   dilate8(cyanMask, cyanDilated)
-  const blobs = findBlobs(cyanDilated, 380, 4)
+  const blobs = findBlobs(cyanDilated, 220, 4)
 
   let best: { b: Blob; bw: number; bh: number } | null = null
   for (const b of blobs) {
