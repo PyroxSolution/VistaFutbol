@@ -33,10 +33,10 @@ export const KICKED_HOLD_MS = 1300
 export const GOAL_HOLD_MS = 4500
 export const APPROACH_DWELL_MS = 900
 export const KICK_READY_MIN_HOLD_MS = 600
-export const TARGET_LOST_RESET_MS = 3500
+export const TARGET_LOST_RESET_MS = 1600
 export const CLOSE_FRAMES_FOR_KICK = 5
-export const APPROACH_FRAMES_TO_ENTER = 3
-export const CLOSE_GOAL_FRAMES_FOR_REACH = 4
+export const APPROACH_FRAMES_TO_ENTER = 6
+export const CLOSE_GOAL_FRAMES_FOR_REACH = 5
 export const KICK_VELOCITY_THRESHOLD = 0.55
 
 export function nextState(state: GameState, i: MachineInput): GameState {

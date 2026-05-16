@@ -69,7 +69,7 @@ export function useGameState(input: UseGameStateInput): UseGameStateResult {
       if (ballPresent) {
         approachBallFramesRef.current = Math.min(approachBallFramesRef.current + 1, 20)
       } else {
-        approachBallFramesRef.current = Math.max(approachBallFramesRef.current - 1, 0)
+        approachBallFramesRef.current = Math.max(approachBallFramesRef.current - 2, 0)
       }
 
       if (i.goalPolar && i.goalPolar.distance < GOAL_REACH_DISTANCE_M) {

@@ -5,10 +5,10 @@ import type { BoundingBox, Detection } from '../types'
 import { detectAnyBall, detectCyanGoal } from '../lib/detector-hsv'
 
 const TICK_MS = 140
-const COCO_MIN_SCORE = 0.26
-const COCO_HIGH_CONFIDENCE = 0.46
-const HSV_SOLO_MIN_SCORE = 0.58
-const BALL_HOLD_MS = 320
+const COCO_MIN_SCORE = 0.28
+const COCO_HIGH_CONFIDENCE = 0.55
+const HSV_SOLO_MIN_SCORE = 0.66
+const BALL_HOLD_MS = 200
 const GOAL_HOLD_MS = 700
 const SMOOTH_ALPHA = 0.5
 const AR_MIN = 0.6
