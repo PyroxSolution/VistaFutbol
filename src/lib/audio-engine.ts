@@ -92,6 +92,7 @@ export function setAudioTarget(polar: PolarCoord | null): void {
 
 function blip() {
   if (!ctx || !panner || !target) return
+  if (ctx.state !== 'running') return
   const now = ctx.currentTime
   const dist = Math.max(0.3, Math.min(target.distance, 8))
   const freq = Math.round(880 - (dist / 8) * 550)

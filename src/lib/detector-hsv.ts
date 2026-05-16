@@ -52,10 +52,10 @@ const BRIGHT: HsvRange = {
 }
 
 const CYAN: HsvRange = {
-  hueMin: 160,
-  hueMax: 210,
-  satMin: 0.4,
-  valMin: 0.35,
+  hueMin: 168,
+  hueMax: 200,
+  satMin: 0.45,
+  valMin: 0.4,
 }
 
 function buildMask(data: Uint8ClampedArray, range: HsvRange, out: Uint8Array): void {

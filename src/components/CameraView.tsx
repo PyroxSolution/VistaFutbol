@@ -5,9 +5,9 @@ import { useSpatialAudio } from '../hooks/useSpatialAudio'
 import { useGameState } from '../hooks/useGameState'
 import { DetectionOverlay } from './DetectionOverlay'
 import { GoalCelebration } from './GoalCelebration'
-import { bboxToPolar, shortDirectionLabel } from '../lib/geometry'
+import { bboxToPolar, shortDirectionLabel, REFERENCE_GOAL_WIDTH_M } from '../lib/geometry'
 import { isBallPhase, isGoalPhase, stateLabel } from '../state/gameMachine'
-import { subscribeToSpeech, getLastSpoken } from '../lib/tts-engine'
+import { subscribeToSpeech, getLastSpoken, speak } from '../lib/tts-engine'
 
 interface Props {
   onExit: () => void
@@ -29,6 +29,12 @@ export function CameraView({ onExit, width, height }: Props) {
     return subscribeToSpeech((t) => setSpoken(t))
   }, [])
 
+  useEffect(() => {
+    if (!ready || modelReady) return
+    const id = setTimeout(() => speak('cargando, un momento', 'high'), 700)
+    return () => clearTimeout(id)
+  }, [ready, modelReady])
+
   const video = videoRef.current
   const ballPolar =
     ball && video && video.videoWidth
@@ -36,7 +42,7 @@ export function CameraView({ onExit, width, height }: Props) {
       : null
   const goalPolar =
     goal && video && video.videoWidth
-      ? bboxToPolar(goal.bbox, video.videoWidth, video.videoHeight)
+      ? bboxToPolar(goal.bbox, video.videoWidth, video.videoHeight, REFERENCE_GOAL_WIDTH_M, true)
       : null
 
   const { state: gameState, reset } = useGameState({

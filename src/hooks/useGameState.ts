@@ -102,13 +102,27 @@ export function useGameState(input: UseGameStateInput): UseGameStateResult {
     const narrate = () => {
       const i = inputRef.current
       if (state === 'ball:approach' && i.ballPolar) {
-        const m = Math.max(0, Math.round(i.ballPolar.distance))
-        const meters = m === 1 ? '1 metro' : `${m} metros`
-        speak(`balón a ${meters}, ${directionLabel(i.ballPolar.angle)}`, 'low')
+        const d = i.ballPolar.distance
+        if (d < 0.6) return
+        const dir = directionLabel(i.ballPolar.angle)
+        if (d < 1.3) {
+          speak(`balón muy cerca, ${dir}`, 'low')
+        } else {
+          const m = Math.round(d)
+          const meters = m === 1 ? '1 metro' : `${m} metros`
+          speak(`balón a ${meters}, ${dir}`, 'low')
+        }
       } else if (state === 'goal:approach' && i.goalPolar) {
-        const m = Math.max(0, Math.round(i.goalPolar.distance))
-        const meters = m === 1 ? '1 metro' : `${m} metros`
-        speak(`portería a ${meters}, ${directionLabel(i.goalPolar.angle)}`, 'low')
+        const d = i.goalPolar.distance
+        if (d < 0.6) return
+        const dir = directionLabel(i.goalPolar.angle)
+        if (d < 1.3) {
+          speak(`portería muy cerca, ${dir}`, 'low')
+        } else {
+          const m = Math.round(d)
+          const meters = m === 1 ? '1 metro' : `${m} metros`
+          speak(`portería a ${meters}, ${dir}`, 'low')
+        }
       }
     }
 

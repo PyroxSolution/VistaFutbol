@@ -1,12 +1,15 @@
 import type { BoundingBox, PolarCoord } from '../types'
 
 const FOV_HORIZONTAL_DEG = 65
-const REFERENCE_BALL_DIAMETER_M = 0.22
+export const REFERENCE_BALL_DIAMETER_M = 0.22
+export const REFERENCE_GOAL_WIDTH_M = 0.6
 
 export function bboxToPolar(
   bbox: BoundingBox,
   frameWidth: number,
-  frameHeight: number
+  frameHeight: number,
+  referenceSize: number = REFERENCE_BALL_DIAMETER_M,
+  useWidthOnly: boolean = false
 ): PolarCoord {
   const cx = bbox.x + bbox.width / 2
   const normalized = cx / frameWidth - 0.5
@@ -14,8 +17,8 @@ export function bboxToPolar(
   const angle = (angleDeg * Math.PI) / 180
 
   const focalPx = frameWidth / (2 * Math.tan((FOV_HORIZONTAL_DEG * Math.PI) / 360))
-  const size = Math.min(bbox.width, bbox.height)
-  const distance = (REFERENCE_BALL_DIAMETER_M * focalPx) / Math.max(size, 1)
+  const size = useWidthOnly ? bbox.width : Math.min(bbox.width, bbox.height)
+  const distance = (referenceSize * focalPx) / Math.max(size, 1)
 
   void frameHeight
   return { angle, distance }
