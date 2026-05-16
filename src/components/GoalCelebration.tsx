@@ -1,6 +1,6 @@
 export function GoalCelebration() {
   return (
-    <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-cancha-500/85 backdrop-blur-sm animate-in fade-in">
+    <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-cancha-500/85 backdrop-blur-sm animate-pop-in">
       <div className="text-center">
         <p className="font-mono text-[12px] uppercase tracking-[0.4em] text-black/70">
           jugada completada

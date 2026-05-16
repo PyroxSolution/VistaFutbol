@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useCamera } from '../hooks/useCamera'
 import { useDetector } from '../hooks/useDetector'
 import { useSpatialAudio } from '../hooks/useSpatialAudio'
@@ -7,6 +7,7 @@ import { DetectionOverlay } from './DetectionOverlay'
 import { GoalCelebration } from './GoalCelebration'
 import { angleToClockHour, bboxToPolar } from '../lib/geometry'
 import { isBallPhase, isGoalPhase, stateLabel } from '../state/gameMachine'
+import { subscribeToSpeech, getLastSpoken } from '../lib/tts-engine'
 
 interface Props {
   onExit: () => void
@@ -16,10 +17,15 @@ export function CameraView({ onExit }: Props) {
   const { videoRef, ready, error, start } = useCamera({ facingMode: 'environment' })
   const { ball, goal, modelReady, modelError, fps, usingFallback } = useDetector(videoRef, ready)
   const audio = useSpatialAudio()
+  const [spoken, setSpoken] = useState(getLastSpoken())
 
   useEffect(() => {
     void start()
   }, [start])
+
+  useEffect(() => {
+    return subscribeToSpeech((t) => setSpoken(t))
+  }, [])
 
   const video = videoRef.current
   const ballPolar =
@@ -31,7 +37,7 @@ export function CameraView({ onExit }: Props) {
       ? bboxToPolar(goal.bbox, video.videoWidth, video.videoHeight)
       : null
 
-  const gameState = useGameState({
+  const { state: gameState, reset } = useGameState({
     cameraReady: ready,
     modelReady,
     ballPolar,
@@ -73,7 +79,7 @@ export function CameraView({ onExit }: Props) {
       )}
 
       <div
-        className={`absolute inset-x-12 top-28 bottom-44 pointer-events-none transition-opacity ${isKickReady ? 'opacity-100' : 'opacity-80'}`}
+        className={`absolute inset-x-12 top-28 bottom-52 pointer-events-none transition-opacity ${isKickReady ? 'opacity-100' : 'opacity-80'}`}
       >
         <Bracket pos="tl" />
         <Bracket pos="tr" />
@@ -107,16 +113,24 @@ export function CameraView({ onExit }: Props) {
           />
           <Datum label="fps" value={fps ? String(fps) : '—'} />
         </div>
-        <button
-          onClick={onExit}
-          className="-mr-2 -mt-1 px-3 py-2 text-xs font-medium uppercase tracking-widest text-white/80 active:text-white"
-        >
-          salir
-        </button>
+        <div className="flex flex-col items-end gap-2">
+          <button
+            onClick={onExit}
+            className="-mr-2 -mt-1 px-3 py-2 text-xs font-medium uppercase tracking-widest text-white/80 active:text-white"
+          >
+            salir
+          </button>
+          <button
+            onClick={reset}
+            className="rounded-full border border-white/25 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.3em] text-white/85 active:bg-white/10"
+          >
+            reset
+          </button>
+        </div>
       </div>
 
       {(error || modelError) && (
-        <div className="absolute inset-x-5 bottom-40 rounded-lg border border-red-800/60 bg-red-950/95 p-5 backdrop-blur">
+        <div className="absolute inset-x-5 bottom-44 rounded-lg border border-red-800/60 bg-red-950/95 p-5 backdrop-blur">
           <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.3em] text-red-400">
             {error ? 'permiso requerido' : 'modelo no cargó'}
           </p>
@@ -141,6 +155,14 @@ export function CameraView({ onExit }: Props) {
         >
           {stateLabel(gameState)}
         </p>
+        {spoken && (
+          <p
+            key={spoken}
+            className="mt-3 max-w-[85%] text-2xl font-black leading-[1.05] tracking-tight text-white/95 animate-fade-up"
+          >
+            “{spoken}”
+          </p>
+        )}
       </div>
 
       {gameState === 'goal:reached' && <GoalCelebration />}

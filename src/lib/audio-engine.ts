@@ -97,8 +97,8 @@ function blip() {
 
   const env = ctx.createGain()
   env.gain.setValueAtTime(0, now)
-  env.gain.linearRampToValueAtTime(0.5, now + 0.008)
-  env.gain.exponentialRampToValueAtTime(0.001, now + 0.09)
+  env.gain.linearRampToValueAtTime(0.65, now + 0.008)
+  env.gain.exponentialRampToValueAtTime(0.001, now + 0.1)
 
   osc.connect(env).connect(panner)
   osc.start(now)

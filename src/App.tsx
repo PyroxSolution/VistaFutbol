@@ -35,7 +35,10 @@ export default function App() {
         </h1>
 
         <p className="mt-5 max-w-xs text-base leading-snug text-zinc-400">
-          Tu celular ve la cancha por ti. Pon los audífonos y juega.
+          Tu celular ve la cancha por ti. Conecta audio y juega.
+        </p>
+        <p className="mt-2 max-w-xs text-[11px] leading-snug text-zinc-600">
+          Audífonos cableados &gt; bluetooth &gt; altavoz. Sin audífonos el efecto 3D se pierde, la voz sigue.
         </p>
 
         <div className="mt-10 flex items-center gap-5">
@@ -48,7 +51,7 @@ export default function App() {
           </button>
           <div>
             <p className="text-base font-semibold text-white">Empezar</p>
-            <p className="text-xs text-zinc-600">cámara + audífonos</p>
+            <p className="text-xs text-zinc-600">cámara + audio</p>
           </div>
         </div>
       </div>

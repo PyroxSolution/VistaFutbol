@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { playGoal, playKick } from '../lib/audio-engine'
 import { vibrate } from '../lib/haptics'
 import { angleToClockHour } from '../lib/geometry'
-import { speak } from '../lib/tts-engine'
+import { cancelSpeech, speak } from '../lib/tts-engine'
 import { nextState, type GameState } from '../state/gameMachine'
 import type { PolarCoord } from '../types'
 
@@ -13,7 +13,12 @@ export interface UseGameStateInput {
   goalPolar: PolarCoord | null
 }
 
-export function useGameState(input: UseGameStateInput): GameState {
+export interface UseGameStateResult {
+  state: GameState
+  reset: () => void
+}
+
+export function useGameState(input: UseGameStateInput): UseGameStateResult {
   const [state, setState] = useState<GameState>('idle')
 
   const inputRef = useRef(input)
@@ -72,8 +77,8 @@ export function useGameState(input: UseGameStateInput): GameState {
 
     const startId = setTimeout(() => {
       narrate()
-      intervalId = setInterval(narrate, 3500)
-    }, 1200)
+      intervalId = setInterval(narrate, 2800)
+    }, 1000)
 
     return () => {
       clearTimeout(startId)
@@ -81,7 +86,14 @@ export function useGameState(input: UseGameStateInput): GameState {
     }
   }, [state])
 
-  return state
+  const reset = useCallback(() => {
+    cancelSpeech()
+    lastBallSeenAtRef.current = 0
+    lastGoalSeenAtRef.current = 0
+    setState('idle')
+  }, [])
+
+  return { state, reset }
 }
 
 function runEnterEffects(state: GameState) {

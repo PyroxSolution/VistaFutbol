@@ -6,6 +6,24 @@ const NORMAL_GAIN = 0.7
 let voice: SpeechSynthesisVoice | null = null
 let speaking = false
 let queue: Array<{ text: string }> = []
+let lastSpoken = ''
+const subscribers = new Set<(text: string) => void>()
+
+export function subscribeToSpeech(cb: (text: string) => void): () => void {
+  subscribers.add(cb)
+  return () => {
+    subscribers.delete(cb)
+  }
+}
+
+export function getLastSpoken(): string {
+  return lastSpoken
+}
+
+function emitSpoken(text: string) {
+  lastSpoken = text
+  for (const cb of subscribers) cb(text)
+}
 
 function pickBest(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
   return (
@@ -80,5 +98,6 @@ function next() {
   }
 
   speaking = true
+  emitSpoken(text)
   window.speechSynthesis.speak(u)
 }

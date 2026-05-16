@@ -40,10 +40,10 @@ const WHITE_BALL: HsvRange = {
   hueMin: 0,
   hueMax: 360,
   satMin: 0,
-  satMax: 0.22,
-  valMin: 0.78,
-  minPixels: 180,
-  minDensity: 0.45,
+  satMax: 0.3,
+  valMin: 0.62,
+  minPixels: 150,
+  minDensity: 0.38,
   className: 'white-ball',
 }
 
