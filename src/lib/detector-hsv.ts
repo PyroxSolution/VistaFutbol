@@ -39,16 +39,16 @@ interface Blob {
 const COLORFUL: HsvRange = {
   hueMin: 0,
   hueMax: 360,
-  satMin: 0.32,
-  valMin: 0.28,
+  satMin: 0.45,
+  valMin: 0.32,
 }
 
 const BRIGHT: HsvRange = {
   hueMin: 0,
   hueMax: 360,
   satMin: 0,
-  satMax: 0.32,
-  valMin: 0.68,
+  satMax: 0.28,
+  valMin: 0.75,
 }
 
 const CYAN: HsvRange = {
@@ -215,8 +215,8 @@ function lumVariance(data: Uint8ClampedArray, blob: Blob): number {
 }
 
 function verticalPrior(yNorm: number): number {
-  if (yNorm < 0.25) return 0.3
-  if (yNorm < 0.5) return 0.65
+  if (yNorm < 0.2) return 0.6
+  if (yNorm < 0.45) return 0.85
   return 1.0
 }
 
@@ -317,13 +317,13 @@ export function detectAnyBall(video: HTMLVideoElement): Detection | null {
     return blobToDetection(fusedBest, 'hsv-fused', video)
   }
 
-  const colorBest = pickBest(data, colorfulDilated, 45, 0.5, [0.58, 1.7], 90)
-  if (colorBest) return blobToDetection(colorBest, 'hsv-color', video)
+  const colorBest = pickBest(data, colorfulDilated, 55, 0.58, [0.6, 1.65], 110)
+  if (colorBest && colorBest.score >= 0.6) return blobToDetection(colorBest, 'hsv-color', video)
 
-  if (fusedBest) return blobToDetection(fusedBest, 'hsv-fused', video)
+  if (fusedBest && fusedBest.score >= 0.55) return blobToDetection(fusedBest, 'hsv-fused', video)
 
-  const brightBest = pickBest(data, brightDilated, 120, 0.65, [0.6, 1.65], 150)
-  return brightBest ? blobToDetection(brightBest, 'hsv-bright', video) : null
+  const brightBest = pickBest(data, brightDilated, 130, 0.7, [0.62, 1.6], 170)
+  return brightBest && brightBest.score >= 0.6 ? blobToDetection(brightBest, 'hsv-bright', video) : null
 }
 
 export function detectCyanGoal(video: HTMLVideoElement): Detection | null {

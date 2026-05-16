@@ -5,10 +5,11 @@ import type { BoundingBox, Detection } from '../types'
 import { detectAnyBall, detectCyanGoal } from '../lib/detector-hsv'
 
 const TICK_MS = 140
-const COCO_MIN_SCORE = 0.28
+const COCO_MIN_SCORE = 0.22
 const COCO_HIGH_CONFIDENCE = 0.55
-const HSV_SOLO_MIN_SCORE = 0.66
-const BALL_HOLD_MS = 200
+const HSV_SOLO_MIN_SCORE = 0.80
+const IOU_AGREEMENT = 0.22
+const BALL_HOLD_MS = 120
 const GOAL_HOLD_MS = 700
 const SMOOTH_ALPHA = 0.5
 const AR_MIN = 0.6
@@ -53,8 +54,8 @@ function isBallShape(bbox: BoundingBox): boolean {
 }
 
 function verticalPrior(yNorm: number): number {
-  if (yNorm < 0.25) return 0.3
-  if (yNorm < 0.5) return 0.65
+  if (yNorm < 0.2) return 0.6
+  if (yNorm < 0.45) return 0.85
   return 1.0
 }
 
@@ -152,7 +153,7 @@ export function useDetector(
 
       if (cocoBall && hsvBall) {
         const overlap = iou(cocoBall.bbox, hsvBall.bbox)
-        if (overlap > 0.18) {
+        if (overlap > IOU_AGREEMENT) {
           chosen = {
             bbox: {
               x: cocoBall.bbox.x * 0.65 + hsvBall.bbox.x * 0.35,
