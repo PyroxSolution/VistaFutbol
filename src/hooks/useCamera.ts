@@ -23,7 +23,7 @@ const FRIENDLY: Record<string, string> = {
 }
 
 export function useCamera(options: UseCameraOptions = {}): UseCameraResult {
-  const { facingMode = 'environment', width = 640, height = 480 } = options
+  const { facingMode = 'environment', width = 1280, height = 720 } = options
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
