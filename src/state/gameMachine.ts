@@ -65,9 +65,12 @@ export function nextState(state: GameState, i: MachineInput): GameState {
 
     case 'ball:kick-ready':
       if (i.now - i.enteredAt < KICK_READY_MIN_HOLD_MS) return state
-      if (i.ballVelocity > KICK_VELOCITY_THRESHOLD) return 'ball:kicked'
       if (i.ballPolar && i.ballPolar.distance > KICK_EXIT_DISTANCE_M) return 'ball:kicked'
       if (!i.ballPolar && i.now - i.lastBallSeenAt > BALL_GONE_GRACE_MS) return 'ball:kicked'
+      if (i.ballVelocity > KICK_VELOCITY_THRESHOLD) {
+        if (!i.ballPolar) return 'ball:kicked'
+        if (i.ballPolar.distance > KICK_DISTANCE_M * 1.5) return 'ball:kicked'
+      }
       return state
 
     case 'ball:kicked':

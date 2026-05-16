@@ -10,6 +10,7 @@ let lastSpoken = ''
 const subscribers = new Set<(text: string) => void>()
 let watchdogId: ReturnType<typeof setTimeout> | null = null
 let primed = false
+let keepaliveId: ReturnType<typeof setInterval> | null = null
 
 export function subscribeToSpeech(cb: (text: string) => void): () => void {
   subscribers.add(cb)
@@ -53,19 +54,40 @@ export function isTTSSupported(): boolean {
   return typeof window !== 'undefined' && 'speechSynthesis' in window
 }
 
-export function primeTTS(): void {
-  if (!isTTSSupported() || primed) return
-  primed = true
+function silentPing(): void {
+  if (!isTTSSupported()) return
   try {
-    const u = new SpeechSynthesisUtterance('vamos')
+    const u = new SpeechSynthesisUtterance(' ')
     if (voice) u.voice = voice
     u.lang = voice?.lang ?? 'es-MX'
     u.volume = 0.01
-    u.rate = 1.4
-    window.speechSynthesis.cancel()
+    u.rate = 1.5
     window.speechSynthesis.speak(u)
   } catch {
     /* ignore */
+  }
+}
+
+export function primeTTS(): void {
+  if (!isTTSSupported()) return
+  if (!primed) {
+    primed = true
+    try {
+      const u = new SpeechSynthesisUtterance('vamos')
+      if (voice) u.voice = voice
+      u.lang = voice?.lang ?? 'es-MX'
+      u.volume = 0.01
+      u.rate = 1.4
+      window.speechSynthesis.cancel()
+      window.speechSynthesis.speak(u)
+    } catch {
+      /* ignore */
+    }
+  }
+  if (keepaliveId === null) {
+    keepaliveId = setInterval(() => {
+      if (!speaking && queue.length === 0) silentPing()
+    }, 18000)
   }
 }
 

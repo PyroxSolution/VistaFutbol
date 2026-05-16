@@ -47,6 +47,9 @@ export function useGameState(input: UseGameStateInput): UseGameStateResult {
   useEffect(() => {
     stateRef.current = state
     enteredAtRef.current = performance.now()
+    closeBallFramesRef.current = 0
+    approachBallFramesRef.current = 0
+    closeGoalFramesRef.current = 0
     runEnterEffects(state)
   }, [state])
 

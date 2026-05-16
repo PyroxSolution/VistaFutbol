@@ -35,6 +35,34 @@ export function CameraView({ onExit, width, height }: Props) {
     return () => clearTimeout(id)
   }, [ready, modelReady])
 
+  useEffect(() => {
+    if (!('wakeLock' in navigator)) return
+    type Sentinel = { release: () => Promise<void> }
+    type Nav = Navigator & { wakeLock: { request: (t: 'screen') => Promise<Sentinel> } }
+    const nav = navigator as Nav
+    let sentinel: Sentinel | null = null
+    let cancelled = false
+
+    const acquire = async () => {
+      try {
+        const wl = await nav.wakeLock.request('screen')
+        if (cancelled) { void wl.release(); return }
+        sentinel = wl
+      } catch { /* ignore */ }
+    }
+    const onVis = () => {
+      if (document.visibilityState === 'visible' && !sentinel) void acquire()
+    }
+    void acquire()
+    document.addEventListener('visibilitychange', onVis)
+
+    return () => {
+      cancelled = true
+      document.removeEventListener('visibilitychange', onVis)
+      if (sentinel) void sentinel.release().catch(() => {})
+    }
+  }, [])
+
   const video = videoRef.current
   const ballPolar =
     ball && video && video.videoWidth
