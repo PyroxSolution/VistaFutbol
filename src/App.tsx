@@ -73,12 +73,6 @@ export default function App() {
         </p>
       </div>
 
-      <div className="absolute right-6 top-6 text-right">
-        <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-zinc-600">
-          mty · 16 may
-        </p>
-      </div>
-
       <div className="flex min-h-screen flex-col justify-end px-6 pb-10">
         <h1 className="text-[clamp(3.5rem,18vw,9rem)] font-black leading-[0.82] tracking-[-0.045em]">
           Vista
@@ -145,10 +139,6 @@ export default function App() {
         </div>
       </div>
 
-      <div className="absolute inset-x-6 bottom-3 flex justify-between font-mono text-[10px] uppercase tracking-[0.3em] text-zinc-700">
-        <span>m0 · setup</span>
-        <span>v0.1</span>
-      </div>
     </main>
   )
 }

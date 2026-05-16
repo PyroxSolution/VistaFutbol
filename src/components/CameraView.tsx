@@ -184,20 +184,18 @@ export function CameraView({ onExit, width, height }: Props) {
       )}
 
       <div className="absolute inset-x-5 bottom-8">
-        <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.3em] text-white/40">
-          fase · {gameState}
-        </p>
-        <p
-          className={`text-xl font-bold leading-tight ${isKickReady ? 'text-cancha-500' : 'text-white'}`}
-        >
-          {stateLabel(gameState)}
-        </p>
-        {spoken && (
+        {spoken ? (
           <p
             key={spoken}
-            className="mt-3 max-w-[85%] text-2xl font-black leading-[1.05] tracking-tight text-white/95 animate-fade-up"
+            className={`max-w-[85%] text-2xl font-black leading-[1.05] tracking-tight animate-fade-up ${isKickReady ? 'text-cancha-500' : 'text-white/95'}`}
           >
             “{spoken}”
+          </p>
+        ) : (
+          <p
+            className={`text-xl font-bold leading-tight ${isKickReady ? 'text-cancha-500' : 'text-white'}`}
+          >
+            {stateLabel(gameState)}
           </p>
         )}
       </div>
