@@ -11,10 +11,12 @@ import { subscribeToSpeech, getLastSpoken } from '../lib/tts-engine'
 
 interface Props {
   onExit: () => void
+  width?: number
+  height?: number
 }
 
-export function CameraView({ onExit }: Props) {
-  const { videoRef, ready, error, start } = useCamera({ facingMode: 'environment' })
+export function CameraView({ onExit, width, height }: Props) {
+  const { videoRef, ready, error, start } = useCamera({ facingMode: 'environment', width, height })
   const { ball, goal, modelReady, modelError, fps, usingFallback } = useDetector(videoRef, ready)
   const audio = useSpatialAudio()
   const [spoken, setSpoken] = useState(getLastSpoken())

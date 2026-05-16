@@ -1,7 +1,7 @@
 import type { Detection } from '../types'
 
-const W = 160
-const H = 120
+const W = 240
+const H = 180
 
 let canvas: HTMLCanvasElement | null = null
 let ctx: CanvasRenderingContext2D | null = null
@@ -176,11 +176,30 @@ interface ScoredBlob {
   bh: number
 }
 
+function lumVariance(data: Uint8ClampedArray, blob: Blob): number {
+  let sum = 0
+  let sumSq = 0
+  let n = 0
+  const step = 2
+  for (let y = blob.minY; y <= blob.maxY; y += step) {
+    for (let x = blob.minX; x <= blob.maxX; x += step) {
+      const i = (y * W + x) * 4
+      const l = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
+      sum += l
+      sumSq += l * l
+      n++
+    }
+  }
+  if (n === 0) return 0
+  const mean = sum / n
+  return sumSq / n - mean * mean
+}
+
 function scoreBallBlob(blob: Blob, minCircularity: number): ScoredBlob | null {
   const bw = blob.maxX - blob.minX + 1
   const bh = blob.maxY - blob.minY + 1
 
-  if (bw < 9 || bh < 9) return null
+  if (bw < 12 || bh < 12) return null
   if (bw > W * 0.7 || bh > H * 0.7) return null
 
   const ar = bw / bh
@@ -235,21 +254,25 @@ export function detectAnyBall(video: HTMLVideoElement): Detection | null {
 
   buildMask(data, COLORFUL, colorfulMask)
   dilate(colorfulMask, colorfulDilated)
-  const colorBlobs = findBlobs(colorfulDilated, 55, 6)
+  const colorBlobs = findBlobs(colorfulDilated, 110, 6)
 
   let best: ScoredBlob | null = null
   for (const b of colorBlobs) {
     const scored = scoreBallBlob(b, 0.55)
-    if (scored && (!best || scored.score > best.score)) best = scored
+    if (!scored) continue
+    if (lumVariance(data, b) < 120) continue
+    if (!best || scored.score > best.score) best = scored
   }
 
   if (best) return blobToDetection(best, 'hsv-color', video)
 
   buildMask(data, BRIGHT, brightMask)
-  const brightBlobs = findBlobs(brightMask, 120, 4)
+  const brightBlobs = findBlobs(brightMask, 250, 4)
   for (const b of brightBlobs) {
     const scored = scoreBallBlob(b, 0.7)
-    if (scored && (!best || scored.score > best.score)) best = scored
+    if (!scored) continue
+    if (lumVariance(data, b) < 180) continue
+    if (!best || scored.score > best.score) best = scored
   }
 
   return best ? blobToDetection(best, 'hsv-bright', video) : null
@@ -262,13 +285,13 @@ export function detectCyanGoal(video: HTMLVideoElement): Detection | null {
 
   buildMask(data, CYAN, cyanMask)
   dilate(cyanMask, cyanDilated)
-  const blobs = findBlobs(cyanDilated, 180, 4)
+  const blobs = findBlobs(cyanDilated, 380, 4)
 
   let best: { b: Blob; bw: number; bh: number } | null = null
   for (const b of blobs) {
     const bw = b.maxX - b.minX + 1
     const bh = b.maxY - b.minY + 1
-    if (bw < 14 || bh < 14) continue
+    if (bw < 20 || bh < 20) continue
     if (bw > W * 0.85 || bh > H * 0.85) continue
     const ar = bw / bh
     if (ar < 0.25 || ar > 4.5) continue

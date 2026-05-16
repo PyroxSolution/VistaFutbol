@@ -5,7 +5,12 @@ let panner: PannerNode | null = null
 let masterGain: GainNode | null = null
 let target: PolarCoord | null = null
 let loopId: ReturnType<typeof setTimeout> | null = null
+let blipsMuted = false
 const listeners = new Set<() => void>()
+
+export function setBlipsMuted(muted: boolean): void {
+  blipsMuted = muted
+}
 
 function emit() {
   for (const l of listeners) l()
@@ -107,7 +112,7 @@ function blip() {
 
 function scheduleLoop() {
   if (loopId !== null) clearTimeout(loopId)
-  if (target) blip()
+  if (target && !blipsMuted) blip()
   const dist = target?.distance ?? 5
   const clamped = Math.max(0.3, Math.min(dist, 6))
   const interval = Math.round(100 + (clamped / 6) * 700)
