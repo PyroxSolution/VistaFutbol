@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { playGoal, playKick } from '../lib/audio-engine'
 import { vibrate } from '../lib/haptics'
-import { angleToClockHour } from '../lib/geometry'
+import { directionLabel } from '../lib/geometry'
 import { cancelSpeech, speak } from '../lib/tts-engine'
-import { nextState, type GameState } from '../state/gameMachine'
+import {
+  KICK_DISTANCE_M,
+  GOAL_REACH_DISTANCE_M,
+  nextState,
+  type GameState,
+} from '../state/gameMachine'
 import type { PolarCoord } from '../types'
 
 export interface UseGameStateInput {
@@ -27,6 +32,10 @@ export function useGameState(input: UseGameStateInput): UseGameStateResult {
   const lastBallSeenAtRef = useRef(0)
   const lastGoalSeenAtRef = useRef(0)
 
+  const closeBallFramesRef = useRef(0)
+  const approachBallFramesRef = useRef(0)
+  const closeGoalFramesRef = useRef(0)
+
   useEffect(() => {
     inputRef.current = input
     const now = performance.now()
@@ -44,6 +53,27 @@ export function useGameState(input: UseGameStateInput): UseGameStateResult {
     const id = setInterval(() => {
       const s = stateRef.current
       const i = inputRef.current
+      const ballNear = !!i.ballPolar && i.ballPolar.distance < KICK_DISTANCE_M
+      const ballPresent = !!i.ballPolar
+
+      if (ballNear) {
+        closeBallFramesRef.current = Math.min(closeBallFramesRef.current + 1, 20)
+      } else {
+        closeBallFramesRef.current = Math.max(closeBallFramesRef.current - 1, 0)
+      }
+
+      if (ballPresent) {
+        approachBallFramesRef.current = Math.min(approachBallFramesRef.current + 1, 20)
+      } else {
+        approachBallFramesRef.current = Math.max(approachBallFramesRef.current - 1, 0)
+      }
+
+      if (i.goalPolar && i.goalPolar.distance < GOAL_REACH_DISTANCE_M) {
+        closeGoalFramesRef.current = Math.min(closeGoalFramesRef.current + 1, 20)
+      } else {
+        closeGoalFramesRef.current = Math.max(closeGoalFramesRef.current - 1, 0)
+      }
+
       const next = nextState(s, {
         cameraReady: i.cameraReady,
         modelReady: i.modelReady,
@@ -53,6 +83,9 @@ export function useGameState(input: UseGameStateInput): UseGameStateResult {
         enteredAt: enteredAtRef.current,
         lastBallSeenAt: lastBallSeenAtRef.current,
         lastGoalSeenAt: lastGoalSeenAtRef.current,
+        closeBallFrames: closeBallFramesRef.current,
+        approachBallFrames: approachBallFramesRef.current,
+        closeGoalFrames: closeGoalFramesRef.current,
       })
       if (next !== s) setState(next)
     }, 80)
@@ -68,10 +101,12 @@ export function useGameState(input: UseGameStateInput): UseGameStateResult {
       const i = inputRef.current
       if (state === 'ball:approach' && i.ballPolar) {
         const m = Math.max(0, Math.round(i.ballPolar.distance))
-        speak(`balón a ${m} metros, hora ${angleToClockHour(i.ballPolar.angle)}`, 'low')
+        const meters = m === 1 ? '1 metro' : `${m} metros`
+        speak(`balón a ${meters}, ${directionLabel(i.ballPolar.angle)}`, 'low')
       } else if (state === 'goal:approach' && i.goalPolar) {
         const m = Math.max(0, Math.round(i.goalPolar.distance))
-        speak(`portería a ${m} metros, hora ${angleToClockHour(i.goalPolar.angle)}`, 'low')
+        const meters = m === 1 ? '1 metro' : `${m} metros`
+        speak(`portería a ${meters}, ${directionLabel(i.goalPolar.angle)}`, 'low')
       }
     }
 
@@ -90,6 +125,9 @@ export function useGameState(input: UseGameStateInput): UseGameStateResult {
     cancelSpeech()
     lastBallSeenAtRef.current = 0
     lastGoalSeenAtRef.current = 0
+    closeBallFramesRef.current = 0
+    approachBallFramesRef.current = 0
+    closeGoalFramesRef.current = 0
     setState('idle')
   }, [])
 

@@ -19,15 +19,23 @@ export interface MachineInput {
   enteredAt: number
   lastBallSeenAt: number
   lastGoalSeenAt: number
+  closeBallFrames: number
+  approachBallFrames: number
+  closeGoalFrames: number
 }
 
-export const KICK_DISTANCE_M = 0.55
+export const KICK_DISTANCE_M = 0.5
+export const KICK_EXIT_DISTANCE_M = 1.8
 export const GOAL_REACH_DISTANCE_M = 0.7
-export const BALL_GONE_GRACE_MS = 700
-export const KICKED_HOLD_MS = 1200
+export const BALL_GONE_GRACE_MS = 2200
+export const KICKED_HOLD_MS = 1300
 export const GOAL_HOLD_MS = 4500
-export const APPROACH_DWELL_MS = 800
-export const TARGET_LOST_RESET_MS = 3000
+export const APPROACH_DWELL_MS = 900
+export const KICK_READY_MIN_HOLD_MS = 1400
+export const TARGET_LOST_RESET_MS = 3500
+export const CLOSE_FRAMES_FOR_KICK = 5
+export const APPROACH_FRAMES_TO_ENTER = 3
+export const CLOSE_GOAL_FRAMES_FOR_REACH = 4
 
 export function nextState(state: GameState, i: MachineInput): GameState {
   switch (state) {
@@ -35,18 +43,27 @@ export function nextState(state: GameState, i: MachineInput): GameState {
       return i.cameraReady && i.modelReady ? 'ball:search' : state
 
     case 'ball:search':
-      return i.ballPolar ? 'ball:approach' : state
+      return i.ballPolar && i.approachBallFrames >= APPROACH_FRAMES_TO_ENTER
+        ? 'ball:approach'
+        : state
 
     case 'ball:approach':
       if (!i.ballPolar && i.now - i.lastBallSeenAt > TARGET_LOST_RESET_MS) {
         return 'ball:search'
       }
       if (i.now - i.enteredAt < APPROACH_DWELL_MS) return state
-      if (i.ballPolar && i.ballPolar.distance < KICK_DISTANCE_M) return 'ball:kick-ready'
+      if (
+        i.ballPolar &&
+        i.ballPolar.distance < KICK_DISTANCE_M &&
+        i.closeBallFrames >= CLOSE_FRAMES_FOR_KICK
+      ) {
+        return 'ball:kick-ready'
+      }
       return state
 
     case 'ball:kick-ready':
-      if (i.ballPolar && i.ballPolar.distance > 1.2) return 'ball:kicked'
+      if (i.now - i.enteredAt < KICK_READY_MIN_HOLD_MS) return state
+      if (i.ballPolar && i.ballPolar.distance > KICK_EXIT_DISTANCE_M) return 'ball:kicked'
       if (!i.ballPolar && i.now - i.lastBallSeenAt > BALL_GONE_GRACE_MS) return 'ball:kicked'
       return state
 
@@ -61,7 +78,13 @@ export function nextState(state: GameState, i: MachineInput): GameState {
         return 'goal:search'
       }
       if (i.now - i.enteredAt < APPROACH_DWELL_MS) return state
-      if (i.goalPolar && i.goalPolar.distance < GOAL_REACH_DISTANCE_M) return 'goal:reached'
+      if (
+        i.goalPolar &&
+        i.goalPolar.distance < GOAL_REACH_DISTANCE_M &&
+        i.closeGoalFrames >= CLOSE_GOAL_FRAMES_FOR_REACH
+      ) {
+        return 'goal:reached'
+      }
       return state
 
     case 'goal:reached':

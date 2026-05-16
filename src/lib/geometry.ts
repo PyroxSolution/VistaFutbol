@@ -14,7 +14,8 @@ export function bboxToPolar(
   const angle = (angleDeg * Math.PI) / 180
 
   const focalPx = frameWidth / (2 * Math.tan((FOV_HORIZONTAL_DEG * Math.PI) / 360))
-  const distance = (REFERENCE_BALL_DIAMETER_M * focalPx) / Math.max(bbox.width, 1)
+  const size = Math.min(bbox.width, bbox.height)
+  const distance = (REFERENCE_BALL_DIAMETER_M * focalPx) / Math.max(size, 1)
 
   void frameHeight
   return { angle, distance }
@@ -25,4 +26,20 @@ export function angleToClockHour(angleRad: number): number {
   const hour = 12 + (deg / 30)
   const normalized = ((hour - 1) % 12) + 1
   return Math.round(normalized)
+}
+
+export function directionLabel(angleRad: number): string {
+  const deg = (angleRad * 180) / Math.PI
+  if (deg < -22) return 'a la izquierda'
+  if (deg < -7) return 'media izquierda'
+  if (deg > 22) return 'a la derecha'
+  if (deg > 7) return 'media derecha'
+  return 'al frente'
+}
+
+export function shortDirectionLabel(angleRad: number): string {
+  const deg = (angleRad * 180) / Math.PI
+  if (deg < -10) return 'izq'
+  if (deg > 10) return 'der'
+  return 'frente'
 }

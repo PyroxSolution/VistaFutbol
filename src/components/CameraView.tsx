@@ -5,7 +5,7 @@ import { useSpatialAudio } from '../hooks/useSpatialAudio'
 import { useGameState } from '../hooks/useGameState'
 import { DetectionOverlay } from './DetectionOverlay'
 import { GoalCelebration } from './GoalCelebration'
-import { angleToClockHour, bboxToPolar } from '../lib/geometry'
+import { bboxToPolar, shortDirectionLabel } from '../lib/geometry'
 import { isBallPhase, isGoalPhase, stateLabel } from '../state/gameMachine'
 import { subscribeToSpeech, getLastSpoken } from '../lib/tts-engine'
 
@@ -102,7 +102,7 @@ export function CameraView({ onExit, width, height }: Props) {
           />
           <Datum
             label="dirección"
-            value={activePolar ? `h${angleToClockHour(activePolar.angle)}` : '—'}
+            value={activePolar ? shortDirectionLabel(activePolar.angle) : '—'}
           />
           <Datum
             label="audio"
