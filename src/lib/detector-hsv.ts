@@ -39,16 +39,16 @@ interface Blob {
 const COLORFUL: HsvRange = {
   hueMin: 0,
   hueMax: 360,
-  satMin: 0.45,
-  valMin: 0.35,
+  satMin: 0.35,
+  valMin: 0.3,
 }
 
 const BRIGHT: HsvRange = {
   hueMin: 0,
   hueMax: 360,
   satMin: 0,
-  satMax: 0.35,
-  valMin: 0.55,
+  satMax: 0.3,
+  valMin: 0.7,
 }
 
 const CYAN: HsvRange = {
@@ -92,12 +92,6 @@ function buildMask(data: Uint8ClampedArray, range: HsvRange, out: Uint8Array): v
 
       out[px] = 1
     }
-  }
-}
-
-function unionInto(target: Uint8Array, other: Uint8Array): void {
-  for (let i = 0; i < target.length; i++) {
-    if (other[i]) target[i] = 1
   }
 }
 
@@ -180,34 +174,33 @@ interface ScoredBlob {
   score: number
   bw: number
   bh: number
-  circularity: number
 }
 
-function scoreBallBlob(blob: Blob): ScoredBlob | null {
+function scoreBallBlob(blob: Blob, minCircularity: number): ScoredBlob | null {
   const bw = blob.maxX - blob.minX + 1
   const bh = blob.maxY - blob.minY + 1
 
-  if (bw < 8 || bh < 8) return null
-  if (bw > W * 0.75 || bh > H * 0.75) return null
+  if (bw < 9 || bh < 9) return null
+  if (bw > W * 0.7 || bh > H * 0.7) return null
 
   const ar = bw / bh
-  if (ar < 0.55 || ar > 1.85) return null
+  if (ar < 0.62 || ar > 1.62) return null
 
   const expectedDisk = (Math.PI / 4) * bw * bh
   const circularity = blob.count / Math.max(1, expectedDisk)
-  if (circularity < 0.5) return null
+  if (circularity < minCircularity) return null
 
   const cx = blob.sumX / blob.count
   const cy = blob.sumY / blob.count
   const boxCx = blob.minX + bw / 2
   const boxCy = blob.minY + bh / 2
   const offset = Math.hypot(cx - boxCx, cy - boxCy) / Math.max(bw, bh)
-  if (offset > 0.22) return null
+  if (offset > 0.18) return null
 
   const arPenalty = 1 - Math.min(1, Math.abs(ar - 1) * 0.8)
-  const score = Math.min(1, circularity * 0.7 + arPenalty * 0.3)
+  const score = Math.min(1, circularity * 0.65 + arPenalty * 0.35)
 
-  return { blob, score, bw, bh, circularity }
+  return { blob, score, bw, bh }
 }
 
 function blobToDetection(
@@ -230,9 +223,8 @@ function blobToDetection(
 }
 
 const colorfulMask = new Uint8Array(W * H)
+const colorfulDilated = new Uint8Array(W * H)
 const brightMask = new Uint8Array(W * H)
-const combinedMask = new Uint8Array(W * H)
-const dilatedMask = new Uint8Array(W * H)
 const cyanMask = new Uint8Array(W * H)
 const cyanDilated = new Uint8Array(W * H)
 
@@ -242,22 +234,25 @@ export function detectAnyBall(video: HTMLVideoElement): Detection | null {
   const { data } = ctx.getImageData(0, 0, W, H)
 
   buildMask(data, COLORFUL, colorfulMask)
-  buildMask(data, BRIGHT, brightMask)
+  dilate(colorfulMask, colorfulDilated)
+  const colorBlobs = findBlobs(colorfulDilated, 55, 6)
 
-  combinedMask.set(colorfulMask)
-  unionInto(combinedMask, brightMask)
-  dilate(combinedMask, dilatedMask)
-
-  const blobs = findBlobs(dilatedMask, 70, 6)
   let best: ScoredBlob | null = null
-  for (const b of blobs) {
-    const scored = scoreBallBlob(b)
-    if (!scored) continue
-    if (!best || scored.score > best.score) best = scored
+  for (const b of colorBlobs) {
+    const scored = scoreBallBlob(b, 0.55)
+    if (scored && (!best || scored.score > best.score)) best = scored
   }
 
-  if (!best) return null
-  return blobToDetection(best, 'hsv-ball', video)
+  if (best) return blobToDetection(best, 'hsv-color', video)
+
+  buildMask(data, BRIGHT, brightMask)
+  const brightBlobs = findBlobs(brightMask, 120, 4)
+  for (const b of brightBlobs) {
+    const scored = scoreBallBlob(b, 0.7)
+    if (scored && (!best || scored.score > best.score)) best = scored
+  }
+
+  return best ? blobToDetection(best, 'hsv-bright', video) : null
 }
 
 export function detectCyanGoal(video: HTMLVideoElement): Detection | null {

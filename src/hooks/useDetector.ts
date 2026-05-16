@@ -5,11 +5,15 @@ import type { BoundingBox, Detection } from '../types'
 import { detectAnyBall, detectCyanGoal } from '../lib/detector-hsv'
 
 const TICK_MS = 140
-const COCO_MIN_SCORE = 0.28
-const BALL_HOLD_MS = 600
-const GOAL_HOLD_MS = 800
-const SMOOTH_ALPHA = 0.55
-const BALL_CLASSES = new Set(['sports ball', 'frisbee', 'apple', 'orange', 'donut'])
+const COCO_MIN_SCORE = 0.32
+const COCO_HIGH_CONFIDENCE = 0.55
+const HSV_SOLO_MIN_SCORE = 0.62
+const BALL_HOLD_MS = 320
+const GOAL_HOLD_MS = 700
+const SMOOTH_ALPHA = 0.5
+const AR_MIN = 0.6
+const AR_MAX = 1.7
+const MIN_SIDE_PX = 18
 
 export interface UseDetectorResult {
   ball: Detection | null
@@ -41,6 +45,12 @@ function iou(a: BoundingBox, b: BoundingBox): number {
   return union <= 0 ? 0 : inter / union
 }
 
+function isBallShape(bbox: BoundingBox): boolean {
+  if (bbox.width < MIN_SIDE_PX || bbox.height < MIN_SIDE_PX) return false
+  const ar = bbox.width / Math.max(1, bbox.height)
+  return ar >= AR_MIN && ar <= AR_MAX
+}
+
 export function useDetector(
   videoRef: React.RefObject<HTMLVideoElement>,
   enabled: boolean
@@ -65,7 +75,7 @@ export function useDetector(
       try {
         await tf.setBackend('webgl').catch(() => tf.setBackend('cpu'))
         await tf.ready()
-        const model = await cocoSsd.load({ base: 'lite_mobilenet_v2' })
+        const model = await cocoSsd.load({ base: 'mobilenet_v2' })
         if (cancelled) return
         modelRef.current = model
         setModelReady(true)
@@ -99,26 +109,29 @@ export function useDetector(
         if (model) {
           try {
             const preds = await model.detect(video, 10, COCO_MIN_SCORE)
-            let best: (typeof preds)[number] | undefined
+            let best: { bbox: BoundingBox; score: number; class: string } | null = null
             for (const p of preds) {
-              if (!BALL_CLASSES.has(p.class)) continue
-              const weight = p.class === 'sports ball' ? 1 : 0.85
-              const eff = p.score * weight
-              if (!best || eff > best.score) best = { ...p, score: eff }
-            }
-            if (best) {
-              cocoBall = {
-                bbox: { x: best.bbox[0], y: best.bbox[1], width: best.bbox[2], height: best.bbox[3] },
-                score: best.score,
-                class: best.class,
+              if (p.class !== 'sports ball') continue
+              const bbox: BoundingBox = {
+                x: p.bbox[0],
+                y: p.bbox[1],
+                width: p.bbox[2],
+                height: p.bbox[3],
+              }
+              if (!isBallShape(bbox)) continue
+              if (!best || p.score > best.score) {
+                best = { bbox, score: p.score, class: p.class }
               }
             }
+            if (best) cocoBall = best
           } catch {
             /* swallow inference errors */
           }
         }
 
-        hsvBall = detectAnyBall(video)
+        const rawHsv = detectAnyBall(video)
+        if (rawHsv && isBallShape(rawHsv.bbox)) hsvBall = rawHsv
+
         rawGoal = detectCyanGoal(video)
       }
 
@@ -127,7 +140,7 @@ export function useDetector(
 
       if (cocoBall && hsvBall) {
         const overlap = iou(cocoBall.bbox, hsvBall.bbox)
-        if (overlap > 0.2) {
+        if (overlap > 0.18) {
           chosen = {
             bbox: {
               x: cocoBall.bbox.x * 0.65 + hsvBall.bbox.x * 0.35,
@@ -135,16 +148,18 @@ export function useDetector(
               width: cocoBall.bbox.width * 0.65 + hsvBall.bbox.width * 0.35,
               height: cocoBall.bbox.height * 0.65 + hsvBall.bbox.height * 0.35,
             },
-            score: Math.min(1, cocoBall.score * 0.7 + hsvBall.score * 0.5),
+            score: Math.min(1, cocoBall.score * 0.75 + hsvBall.score * 0.4),
             class: cocoBall.class,
           }
-        } else {
-          chosen = cocoBall.score >= hsvBall.score ? cocoBall : hsvBall
-          usedFallback = chosen === hsvBall
+        } else if (cocoBall.score >= COCO_HIGH_CONFIDENCE) {
+          chosen = cocoBall
+        } else if (hsvBall.score >= HSV_SOLO_MIN_SCORE) {
+          chosen = hsvBall
+          usedFallback = true
         }
-      } else if (cocoBall) {
+      } else if (cocoBall && cocoBall.score >= COCO_HIGH_CONFIDENCE) {
         chosen = cocoBall
-      } else if (hsvBall) {
+      } else if (hsvBall && hsvBall.score >= HSV_SOLO_MIN_SCORE) {
         chosen = hsvBall
         usedFallback = true
       }
@@ -158,17 +173,17 @@ export function useDetector(
 
       if (chosen) {
         const prev = ballTrackRef.current
-        let next: BoundingBox = chosen.bbox
+        let nextBox: BoundingBox = chosen.bbox
         if (prev && now - prev.lastSeen < BALL_HOLD_MS) {
-          next = smooth(prev.box, chosen.bbox)
+          nextBox = smooth(prev.box, chosen.bbox)
         }
-        ballTrackRef.current = { box: next, score: chosen.score, cls: chosen.class, lastSeen: now }
-        setBall({ bbox: next, score: chosen.score, class: chosen.class })
+        ballTrackRef.current = { box: nextBox, score: chosen.score, cls: chosen.class, lastSeen: now }
+        setBall({ bbox: nextBox, score: chosen.score, class: chosen.class })
       } else {
         const prev = ballTrackRef.current
         if (prev && now - prev.lastSeen < BALL_HOLD_MS) {
           const age = (now - prev.lastSeen) / BALL_HOLD_MS
-          const decayed = prev.score * (1 - age * 0.6)
+          const decayed = prev.score * (1 - age * 0.7)
           setBall({ bbox: prev.box, score: decayed, class: prev.cls })
         } else {
           if (prev) ballTrackRef.current = null
@@ -178,12 +193,12 @@ export function useDetector(
 
       if (rawGoal) {
         const prev = goalTrackRef.current
-        let next: BoundingBox = rawGoal.bbox
+        let nextBox: BoundingBox = rawGoal.bbox
         if (prev && now - prev.lastSeen < GOAL_HOLD_MS) {
-          next = smooth(prev.box, rawGoal.bbox, 0.4)
+          nextBox = smooth(prev.box, rawGoal.bbox, 0.4)
         }
-        goalTrackRef.current = { box: next, score: rawGoal.score, cls: rawGoal.class, lastSeen: now }
-        setGoal({ bbox: next, score: rawGoal.score, class: rawGoal.class })
+        goalTrackRef.current = { box: nextBox, score: rawGoal.score, cls: rawGoal.class, lastSeen: now }
+        setGoal({ bbox: nextBox, score: rawGoal.score, class: rawGoal.class })
       } else {
         const prev = goalTrackRef.current
         if (prev && now - prev.lastSeen < GOAL_HOLD_MS) {
