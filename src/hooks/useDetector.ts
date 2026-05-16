@@ -52,6 +52,12 @@ function isBallShape(bbox: BoundingBox): boolean {
   return ar >= AR_MIN && ar <= AR_MAX
 }
 
+function verticalPrior(yNorm: number): number {
+  if (yNorm < 0.25) return 0.3
+  if (yNorm < 0.5) return 0.65
+  return 1.0
+}
+
 export function useDetector(
   videoRef: React.RefObject<HTMLVideoElement>,
   enabled: boolean
@@ -123,8 +129,10 @@ export function useDetector(
                 height: p.bbox[3],
               }
               if (!isBallShape(bbox)) continue
-              if (!best || p.score > best.score) {
-                best = { bbox, score: p.score, class: p.class }
+              const cy = (bbox.y + bbox.height / 2) / Math.max(1, video.videoHeight)
+              const adjusted = p.score * verticalPrior(cy)
+              if (!best || adjusted > best.score) {
+                best = { bbox, score: adjusted, class: p.class }
               }
             }
             if (best) cocoBall = best

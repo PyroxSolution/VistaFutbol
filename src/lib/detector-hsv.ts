@@ -214,6 +214,12 @@ function lumVariance(data: Uint8ClampedArray, blob: Blob): number {
   return sumSq / n - mean * mean
 }
 
+function verticalPrior(yNorm: number): number {
+  if (yNorm < 0.25) return 0.3
+  if (yNorm < 0.5) return 0.65
+  return 1.0
+}
+
 function scoreBallBlob(blob: Blob, minCircularity: number, arRange: [number, number]): ScoredBlob | null {
   const bw = blob.maxX - blob.minX + 1
   const bh = blob.maxY - blob.minY + 1
@@ -236,7 +242,8 @@ function scoreBallBlob(blob: Blob, minCircularity: number, arRange: [number, num
   if (offset > 0.2) return null
 
   const arPenalty = 1 - Math.min(1, Math.abs(ar - 1) * 0.8)
-  const score = Math.min(1, circularity * 0.65 + arPenalty * 0.35)
+  const posFactor = verticalPrior(cy / H)
+  const score = Math.min(1, (circularity * 0.65 + arPenalty * 0.35) * posFactor)
 
   return { blob, score, bw, bh }
 }
