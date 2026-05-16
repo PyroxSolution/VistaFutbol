@@ -15,6 +15,7 @@ export interface MachineInput {
   modelReady: boolean
   ballPolar: PolarCoord | null
   goalPolar: PolarCoord | null
+  ballVelocity: number
   now: number
   enteredAt: number
   lastBallSeenAt: number
@@ -25,17 +26,18 @@ export interface MachineInput {
 }
 
 export const KICK_DISTANCE_M = 0.5
-export const KICK_EXIT_DISTANCE_M = 1.8
+export const KICK_EXIT_DISTANCE_M = 1.6
 export const GOAL_REACH_DISTANCE_M = 0.7
-export const BALL_GONE_GRACE_MS = 2200
+export const BALL_GONE_GRACE_MS = 1000
 export const KICKED_HOLD_MS = 1300
 export const GOAL_HOLD_MS = 4500
 export const APPROACH_DWELL_MS = 900
-export const KICK_READY_MIN_HOLD_MS = 1400
+export const KICK_READY_MIN_HOLD_MS = 600
 export const TARGET_LOST_RESET_MS = 3500
 export const CLOSE_FRAMES_FOR_KICK = 5
 export const APPROACH_FRAMES_TO_ENTER = 3
 export const CLOSE_GOAL_FRAMES_FOR_REACH = 4
+export const KICK_VELOCITY_THRESHOLD = 0.55
 
 export function nextState(state: GameState, i: MachineInput): GameState {
   switch (state) {
@@ -63,6 +65,7 @@ export function nextState(state: GameState, i: MachineInput): GameState {
 
     case 'ball:kick-ready':
       if (i.now - i.enteredAt < KICK_READY_MIN_HOLD_MS) return state
+      if (i.ballVelocity > KICK_VELOCITY_THRESHOLD) return 'ball:kicked'
       if (i.ballPolar && i.ballPolar.distance > KICK_EXIT_DISTANCE_M) return 'ball:kicked'
       if (!i.ballPolar && i.now - i.lastBallSeenAt > BALL_GONE_GRACE_MS) return 'ball:kicked'
       return state

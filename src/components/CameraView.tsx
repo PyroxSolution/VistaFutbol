@@ -17,7 +17,7 @@ interface Props {
 
 export function CameraView({ onExit, width, height }: Props) {
   const { videoRef, ready, error, start } = useCamera({ facingMode: 'environment', width, height })
-  const { ball, goal, modelReady, modelError, fps, usingFallback } = useDetector(videoRef, ready)
+  const { ball, goal, modelReady, modelError, fps, usingFallback, ballVelocity } = useDetector(videoRef, ready)
   const audio = useSpatialAudio()
   const [spoken, setSpoken] = useState(getLastSpoken())
 
@@ -44,6 +44,7 @@ export function CameraView({ onExit, width, height }: Props) {
     modelReady,
     ballPolar,
     goalPolar,
+    ballVelocity,
   })
 
   const ballPhase = isBallPhase(gameState)

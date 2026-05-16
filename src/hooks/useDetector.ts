@@ -22,6 +22,7 @@ export interface UseDetectorResult {
   modelError: string | null
   fps: number
   usingFallback: boolean
+  ballVelocity: number
 }
 
 function smooth(prev: BoundingBox, cur: BoundingBox, a = SMOOTH_ALPHA): BoundingBox {
@@ -61,12 +62,15 @@ export function useDetector(
   const [modelError, setModelError] = useState<string | null>(null)
   const [fps, setFps] = useState(0)
   const [usingFallback, setUsingFallback] = useState(false)
+  const [ballVelocity, setBallVelocity] = useState(0)
 
   const modelRef = useRef<cocoSsd.ObjectDetection | null>(null)
   const fallbackRef = useRef(false)
 
   const ballTrackRef = useRef<{ box: BoundingBox; score: number; cls: string; lastSeen: number } | null>(null)
   const goalTrackRef = useRef<{ box: BoundingBox; score: number; cls: string; lastSeen: number } | null>(null)
+  const lastCentroidRef = useRef<{ x: number; y: number; t: number } | null>(null)
+  const velocityEmaRef = useRef(0)
 
   useEffect(() => {
     if (!enabled) return
@@ -170,8 +174,22 @@ export function useDetector(
       }
 
       const now = performance.now()
+      const frameW = video?.videoWidth ?? 1
+      const frameH = video?.videoHeight ?? 1
 
       if (chosen) {
+        const cx = (chosen.bbox.x + chosen.bbox.width / 2) / Math.max(1, frameW)
+        const cy = (chosen.bbox.y + chosen.bbox.height / 2) / Math.max(1, frameH)
+        const last = lastCentroidRef.current
+        if (last && now - last.t < 500) {
+          const dt = Math.max(0.04, (now - last.t) / 1000)
+          const v = Math.hypot(cx - last.x, cy - last.y) / dt
+          velocityEmaRef.current = velocityEmaRef.current * 0.55 + v * 0.45
+        } else {
+          velocityEmaRef.current = 0
+        }
+        lastCentroidRef.current = { x: cx, y: cy, t: now }
+
         const prev = ballTrackRef.current
         let nextBox: BoundingBox = chosen.bbox
         if (prev && now - prev.lastSeen < BALL_HOLD_MS) {
@@ -188,8 +206,12 @@ export function useDetector(
         } else {
           if (prev) ballTrackRef.current = null
           setBall(null)
+          lastCentroidRef.current = null
         }
+        velocityEmaRef.current *= 0.7
       }
+
+      setBallVelocity(velocityEmaRef.current)
 
       if (rawGoal) {
         const prev = goalTrackRef.current
@@ -225,5 +247,5 @@ export function useDetector(
     }
   }, [enabled, videoRef])
 
-  return { ball, goal, modelReady, modelError, fps, usingFallback }
+  return { ball, goal, modelReady, modelError, fps, usingFallback, ballVelocity }
 }

@@ -39,16 +39,16 @@ interface Blob {
 const COLORFUL: HsvRange = {
   hueMin: 0,
   hueMax: 360,
-  satMin: 0.35,
-  valMin: 0.3,
+  satMin: 0.32,
+  valMin: 0.28,
 }
 
 const BRIGHT: HsvRange = {
   hueMin: 0,
   hueMax: 360,
   satMin: 0,
-  satMax: 0.3,
-  valMin: 0.7,
+  satMax: 0.32,
+  valMin: 0.68,
 }
 
 const CYAN: HsvRange = {
@@ -95,19 +95,38 @@ function buildMask(data: Uint8ClampedArray, range: HsvRange, out: Uint8Array): v
   }
 }
 
-function dilate(mask: Uint8Array, out: Uint8Array): void {
+function dilate8(mask: Uint8Array, out: Uint8Array): void {
   for (let y = 0; y < H; y++) {
+    const rowMid = y * W
+    const rowTop = y > 0 ? rowMid - W : -1
+    const rowBot = y < H - 1 ? rowMid + W : -1
     for (let x = 0; x < W; x++) {
-      const idx = y * W + x
+      const idx = rowMid + x
       if (mask[idx]) { out[idx] = 1; continue }
+      const xL = x - 1
+      const xR = x + 1
       let hit = 0
-      if (x > 0 && mask[idx - 1]) hit = 1
-      else if (x < W - 1 && mask[idx + 1]) hit = 1
-      else if (y > 0 && mask[idx - W]) hit = 1
-      else if (y < H - 1 && mask[idx + W]) hit = 1
+      if (rowTop >= 0) {
+        if (xL >= 0 && mask[rowTop + xL]) hit = 1
+        else if (mask[rowTop + x]) hit = 1
+        else if (xR < W && mask[rowTop + xR]) hit = 1
+      }
+      if (!hit) {
+        if (xL >= 0 && mask[rowMid + xL]) hit = 1
+        else if (xR < W && mask[rowMid + xR]) hit = 1
+      }
+      if (!hit && rowBot >= 0) {
+        if (xL >= 0 && mask[rowBot + xL]) hit = 1
+        else if (mask[rowBot + x]) hit = 1
+        else if (xR < W && mask[rowBot + xR]) hit = 1
+      }
       out[idx] = hit
     }
   }
+}
+
+function orMasks(a: Uint8Array, b: Uint8Array, out: Uint8Array): void {
+  for (let i = 0; i < a.length; i++) out[i] = a[i] | b[i]
 }
 
 const stack = new Int32Array(W * H)
@@ -195,7 +214,7 @@ function lumVariance(data: Uint8ClampedArray, blob: Blob): number {
   return sumSq / n - mean * mean
 }
 
-function scoreBallBlob(blob: Blob, minCircularity: number): ScoredBlob | null {
+function scoreBallBlob(blob: Blob, minCircularity: number, arRange: [number, number]): ScoredBlob | null {
   const bw = blob.maxX - blob.minX + 1
   const bh = blob.maxY - blob.minY + 1
 
@@ -203,7 +222,7 @@ function scoreBallBlob(blob: Blob, minCircularity: number): ScoredBlob | null {
   if (bw > W * 0.7 || bh > H * 0.7) return null
 
   const ar = bw / bh
-  if (ar < 0.62 || ar > 1.62) return null
+  if (ar < arRange[0] || ar > arRange[1]) return null
 
   const expectedDisk = (Math.PI / 4) * bw * bh
   const circularity = blob.count / Math.max(1, expectedDisk)
@@ -214,7 +233,7 @@ function scoreBallBlob(blob: Blob, minCircularity: number): ScoredBlob | null {
   const boxCx = blob.minX + bw / 2
   const boxCy = blob.minY + bh / 2
   const offset = Math.hypot(cx - boxCx, cy - boxCy) / Math.max(bw, bh)
-  if (offset > 0.18) return null
+  if (offset > 0.2) return null
 
   const arPenalty = 1 - Math.min(1, Math.abs(ar - 1) * 0.8)
   const score = Math.min(1, circularity * 0.65 + arPenalty * 0.35)
@@ -241,11 +260,34 @@ function blobToDetection(
   }
 }
 
+const maskA = new Uint8Array(W * H)
 const colorfulMask = new Uint8Array(W * H)
 const colorfulDilated = new Uint8Array(W * H)
 const brightMask = new Uint8Array(W * H)
+const brightDilated = new Uint8Array(W * H)
+const fusedMask = new Uint8Array(W * H)
+const fusedDilated = new Uint8Array(W * H)
 const cyanMask = new Uint8Array(W * H)
 const cyanDilated = new Uint8Array(W * H)
+
+function pickBest(
+  data: Uint8ClampedArray,
+  mask: Uint8Array,
+  minBlobPx: number,
+  minCircularity: number,
+  arRange: [number, number],
+  minLumVar: number
+): ScoredBlob | null {
+  const blobs = findBlobs(mask, minBlobPx, 6)
+  let best: ScoredBlob | null = null
+  for (const b of blobs) {
+    const scored = scoreBallBlob(b, minCircularity, arRange)
+    if (!scored) continue
+    if (lumVariance(data, b) < minLumVar) continue
+    if (!best || scored.score > best.score) best = scored
+  }
+  return best
+}
 
 export function detectAnyBall(video: HTMLVideoElement): Detection | null {
   if (!video.videoWidth || !ensure() || !ctx) return null
@@ -253,29 +295,28 @@ export function detectAnyBall(video: HTMLVideoElement): Detection | null {
   const { data } = ctx.getImageData(0, 0, W, H)
 
   buildMask(data, COLORFUL, colorfulMask)
-  dilate(colorfulMask, colorfulDilated)
-  const colorBlobs = findBlobs(colorfulDilated, 110, 6)
-
-  let best: ScoredBlob | null = null
-  for (const b of colorBlobs) {
-    const scored = scoreBallBlob(b, 0.55)
-    if (!scored) continue
-    if (lumVariance(data, b) < 120) continue
-    if (!best || scored.score > best.score) best = scored
-  }
-
-  if (best) return blobToDetection(best, 'hsv-color', video)
+  dilate8(colorfulMask, maskA)
+  dilate8(maskA, colorfulDilated)
 
   buildMask(data, BRIGHT, brightMask)
-  const brightBlobs = findBlobs(brightMask, 250, 4)
-  for (const b of brightBlobs) {
-    const scored = scoreBallBlob(b, 0.7)
-    if (!scored) continue
-    if (lumVariance(data, b) < 180) continue
-    if (!best || scored.score > best.score) best = scored
+  dilate8(brightMask, maskA)
+  dilate8(maskA, brightDilated)
+
+  orMasks(colorfulDilated, brightDilated, fusedMask)
+  dilate8(fusedMask, fusedDilated)
+
+  const fusedBest = pickBest(data, fusedDilated, 160, 0.6, [0.62, 1.62], 180)
+  if (fusedBest && fusedBest.score >= 0.66) {
+    return blobToDetection(fusedBest, 'hsv-fused', video)
   }
 
-  return best ? blobToDetection(best, 'hsv-bright', video) : null
+  const colorBest = pickBest(data, colorfulDilated, 90, 0.55, [0.6, 1.65], 120)
+  if (colorBest) return blobToDetection(colorBest, 'hsv-color', video)
+
+  if (fusedBest) return blobToDetection(fusedBest, 'hsv-fused', video)
+
+  const brightBest = pickBest(data, brightDilated, 220, 0.7, [0.62, 1.62], 180)
+  return brightBest ? blobToDetection(brightBest, 'hsv-bright', video) : null
 }
 
 export function detectCyanGoal(video: HTMLVideoElement): Detection | null {
@@ -284,7 +325,7 @@ export function detectCyanGoal(video: HTMLVideoElement): Detection | null {
   const { data } = ctx.getImageData(0, 0, W, H)
 
   buildMask(data, CYAN, cyanMask)
-  dilate(cyanMask, cyanDilated)
+  dilate8(cyanMask, cyanDilated)
   const blobs = findBlobs(cyanDilated, 380, 4)
 
   let best: { b: Blob; bw: number; bh: number } | null = null

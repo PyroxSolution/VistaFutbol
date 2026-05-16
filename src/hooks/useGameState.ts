@@ -16,6 +16,7 @@ export interface UseGameStateInput {
   modelReady: boolean
   ballPolar: PolarCoord | null
   goalPolar: PolarCoord | null
+  ballVelocity: number
 }
 
 export interface UseGameStateResult {
@@ -79,6 +80,7 @@ export function useGameState(input: UseGameStateInput): UseGameStateResult {
         modelReady: i.modelReady,
         ballPolar: i.ballPolar,
         goalPolar: i.goalPolar,
+        ballVelocity: i.ballVelocity,
         now: performance.now(),
         enteredAt: enteredAtRef.current,
         lastBallSeenAt: lastBallSeenAtRef.current,
